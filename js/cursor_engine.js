@@ -221,24 +221,24 @@ window.openRaceModal = async function() {
                 
                 let actionHtml = '';
                 if (isCurrent) {
-                    actionHtml = `<span style="color: #00e5ff; font-weight: bold; font-size: 11px; padding: 4px 0;">EQUIPPED</span>`;
+                    actionHtml = `<span style="color: #00e5ff; font-weight: bold; font-size: 11px; padding: 4px 0; margin-top: auto;">EQUIPPED</span>`;
                 } else if (isUnlocked) {
-                    actionHtml = `<button class="hud-btn" style="padding: 6px 12px; width: 100%;" onclick="window.requestRaceChange('${race.name}', '${race.path}')">Transmute</button>`;
+                    actionHtml = `<button class="btn-equip-race" style="width: 100%; margin-top: auto;" onclick="window.requestRaceChange('${race.name}', '${race.path}')">Transmute</button>`;
                 } else {
                     if (fragCount >= 5) {
-                        actionHtml = `<button class="hud-btn" style="padding: 6px 12px; width: 100%; color: #ffae00; border-color: #ffae00;" onclick="window.craftRace('${race.name}')">Forge (${fragCount}/5)</button>`;
+                        actionHtml = `<button class="btn-equip-race" style="width: 100%; margin-top: auto; color: #ffca28; border-color: rgba(255, 202, 40, 0.4); background: rgba(255, 202, 40, 0.1);" onmouseenter="this.style.background='#ffca28'; this.style.color='#000'; this.style.boxShadow='0 0 15px rgba(255, 202, 40, 0.6)';" onmouseleave="this.style.background='rgba(255, 202, 40, 0.1)'; this.style.color='#ffca28'; this.style.boxShadow='none';" onclick="window.craftRace('${race.name}')">Forge (${fragCount}/5)</button>`;
                     } else {
-                        actionHtml = `<div style="padding: 2px 0;"><span style="color: #ff4444; font-size: 10px; font-weight: bold;">🔒 LOCKED</span><br><span style="color: #888; font-size: 9px;">(${fragCount}/5)</span></div>`;
+                        actionHtml = `<div style="padding: 2px 0; margin-top: auto;"><span style="color: #ff4444; font-size: 10px; font-weight: bold;">🔒 LOCKED</span><br><span style="color: #888; font-size: 9px;">(${fragCount}/5)</span></div>`;
                     }
                 }
 
                 let itemClass = (!isUnlocked && fragCount < 5) ? 'opacity: 0.5;' : '';
 
                 container.innerHTML += `
-                    <div style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: center; ${itemClass}">
+                    <div style="display: flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); text-align: center; transition: 0.2s; height: 100%; box-sizing: border-box; ${itemClass}" onmouseover="if(!this.style.opacity) { this.style.background='rgba(0, 229, 255, 0.05)'; this.style.borderColor='rgba(0, 229, 255, 0.3)'; this.style.transform='translateY(-2px)'; }" onmouseout="if(!this.style.opacity) { this.style.background='rgba(0,0,0,0.4)'; this.style.borderColor='rgba(255,255,255,0.05)'; this.style.transform='none'; }">
                         <img src="${race.path}" style="width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8)); margin-bottom: 8px; image-rendering: pixelated;" onerror="this.src='img/items/default.png'">
-                        <span style="color: #fff; font-weight: bold; font-size: 13px;">${race.name}</span>
-                        <span style="color: #8fa0b5; font-size: 9px; margin-bottom: 8px; min-height: 22px;">${race.desc}</span>
+                        <span style="color: #fff; font-weight: bold; font-size: 13px; margin-bottom: 2px;">${race.name}</span>
+                        <span style="color: #8fa0b5; font-size: 9px; margin-bottom: 12px; min-height: 22px; display: flex; align-items: center; justify-content: center;">${race.desc}</span>
                         ${actionHtml}
                     </div>
                 `;
