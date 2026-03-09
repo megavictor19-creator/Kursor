@@ -1,0 +1,166 @@
+/* ==========================================
+   FILE: css/home.css
+   PURPOSE: Exclusive style for the landing page (Index)
+   ========================================== */
+
+/* Basic Reset & Typography */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #0b140d; /* Dark base background */
+    color: #e0e0e0;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* --- Programmatic Environment (Animated Background) --- */
+.forest-floor {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-linear-gradient(45deg, #121f15 0px, #121f15 2px, transparent 2px, transparent 8px),
+        repeating-linear-gradient(-45deg, #121f15 0px, #121f15 2px, transparent 2px, transparent 8px);
+    opacity: 0.3;
+    z-index: 0;
+}
+
+.toxic-fog {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 50% 50%, rgba(20, 255, 60, 0.08) 0%, rgba(0,0,0,0.8) 80%);
+    mix-blend-mode: screen;
+    animation: pulseFog 6s infinite ease-in-out;
+    z-index: 1;
+    pointer-events: none;
+}
+
+@keyframes pulseFog {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* --- Top Navigation Bar --- */
+.top-bar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 50px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 100%);
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-icon { font-size: 24px; }
+.logo-text { font-size: 20px; font-weight: bold; letter-spacing: 2px; color: #aaa; text-transform: uppercase; }
+
+.auth-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+/* --- Base Buttons --- */
+.btn {
+    padding: 10px 25px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+.btn-login {
+    background: transparent;
+    color: #aaa;
+    border: 1px solid #444;
+}
+
+.btn-login:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+.btn-register {
+    background: #ffae00; /* Hardcore Orange */
+    color: #111;
+    box-shadow: 0 0 10px rgba(255, 174, 0, 0.3);
+}
+
+.btn-register:hover { 
+    background: #ffc133; 
+    box-shadow: 0 0 15px rgba(255, 174, 0, 0.6); 
+    transform: translateY(-2px); 
+}
+
+/* --- Hero Container (Center Screen) --- */
+.hero-container {
+    position: relative;
+    z-index: 10;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0 20px;
+}
+
+.game-title {
+    font-size: 80px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 42, 42, 0.5), 2px 2px 0px #000;
+    margin-bottom: 10px;
+}
+
+.game-subtitle {
+    font-size: 24px;
+    color: #ff4444;
+    font-weight: 300;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+}
+
+.game-desc {
+    max-width: 600px;
+    color: #aaa;
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+}
+
+.btn-play {
+    padding: 15px 50px;
+    font-size: 18px;
+    font-weight: bold;
+    background: linear-gradient(135deg, #8b0000 0%, #ff2a2a 100%);
+    color: white;
+    border: 2px solid #550000;
+    border-radius: 5px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+    box-shadow: 0 10px 20px rgba(139, 0, 0, 0.4);
+}
+
+.btn-play:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 30px rgba(255, 42, 42, 0.6);
+}
