@@ -1,3 +1,4 @@
+// js/tabs/tab_character.js
 if(!document.getElementById('ks-rainbow-css')) {
     let style = document.createElement('style');
     style.id = 'ks-rainbow-css';
@@ -86,13 +87,20 @@ window.renderCharacterSheet = function() {
         });
     }
 
+    // Identificador robusto para garantir que a imagem sempre carregue baseado na classe
+    let raceStr = (p.race || 'Humano').trim().toLowerCase();
+    let charSprite = 'img/races/humano.png';
+    if (raceStr === 'anão' || raceStr === 'anao' || raceStr === 'dwarf') charSprite = 'img/races/anao.png';
+    else if (raceStr === 'elfo' || raceStr === 'elf') charSprite = 'img/races/elfo.png';
+    else if (raceStr === 'orc') charSprite = 'img/races/orc.png';
+
     let html = `
         <div style="display: flex; gap: 15px; width: 100%; box-sizing: border-box; align-items: stretch;">
             
             <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
                 <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                     <div class="char-preview-box" style="margin: 0 auto 10px auto; width: 80px; height: 80px;">
-                        <img id="ui-preview-img" src="${p.sprite_path}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8)); image-rendering: pixelated;">
+                        <img id="ui-preview-img" src="${charSprite}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8)); image-rendering: pixelated;" onerror="this.src='img/races/humano.png'">
                     </div>
                     <h2 style="color: #00e5ff; margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">${p.username}</h2>
                     <div style="color: #ffca28; font-size: 10px; font-weight: bold; margin-top:2px;">Lv. ${p.race_level || 1} ${p.race}</div>

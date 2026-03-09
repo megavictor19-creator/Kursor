@@ -437,10 +437,6 @@ async function bootCursorEngine() {
             window.playerLevel = parseInt(window.playerData.race_level) || 1;
             window.playerNextLevelXp = window.xpTable[window.playerLevel] || 99999999999;
             
-            window.accountLevel = parseInt(window.playerData.account_level) || 1;
-            window.highestRaceLevel = parseInt(window.playerData.highest_race_level) || 1;
-            window.pendingAccountRewards = parseInt(window.playerData.pending_account_rewards) || 0;
-            
             window.playerGold = parseInt(window.playerData.gold) || 0; 
             window.playerKills = parseInt(window.playerData.kills) || 0; 
 
@@ -465,126 +461,6 @@ async function bootCursorEngine() {
             initMultiplayer();
         } 
     } catch (error) {}
-
-    const rewardBtn = document.createElement('div');
-    rewardBtn.id = "btn-account-reward";
-    rewardBtn.innerHTML = "<span style='font-size:20px; line-height:36px; text-shadow: 0 0 5px #ffae00;'>⭐</span><div id='reward-badge' style='position:absolute; top:-5px; right:-5px; background:#ff2a2a; color:#fff; border-radius:50%; width:18px; height:18px; font-size:10px; line-height:18px; text-align:center; font-family:sans-serif; font-weight:bold; box-shadow: 0 2px 5px rgba(0,0,0,0.8);'>1</div>";
-    Object.assign(rewardBtn.style, {
-        display: 'none', position: 'absolute', top: '20px', left: '20px', zIndex: '2000',
-        background: 'rgba(10, 15, 20, 0.6)', padding: '0', borderRadius: '50%', color: '#fff', cursor: 'pointer',
-        boxShadow: '0 0 15px rgba(255, 174, 0, 0.4)', border: '1px solid rgba(255, 174, 0, 0.5)',
-        width: '40px', height: '40px', justifyContent: 'center', alignItems: 'center',
-        backdropFilter: 'blur(8px)', transition: 'transform 0.2s'
-    });
-    rewardBtn.onmouseover = () => rewardBtn.style.transform = 'scale(1.1)';
-    rewardBtn.onmouseout = () => rewardBtn.style.transform = 'scale(1)';
-    document.body.appendChild(rewardBtn);
-
-    const rewardModal = document.createElement('div');
-    rewardModal.id = "reward-selection-modal";
-    Object.assign(rewardModal.style, {
-        display: 'none', position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-        background: 'rgba(0,0,0,0.85)', zIndex: '9999', justifyContent: 'center', alignItems: 'center',
-        backdropFilter: 'blur(10px)'
-    });
-    document.body.appendChild(rewardModal);
-
-    window.openRewardModal = function() {
-        if (window.pendingAccountRewards <= 0) return;
-        
-        const attributes = [
-            { id: 'power', name: 'Power Strike', icon: '⚔️', desc: '+3 Base Damage across all builds' },
-            { id: 'vitality', name: 'Vitality Boost', icon: '❤️', desc: '+20 Max HP permanently' },
-            { id: 'critical', name: 'Critical Sense', icon: '⚡', desc: '+1.5% Base Critical Chance' },
-            { id: 'dodge', name: 'Dodge Mastery', icon: '💨', desc: '+1% Chance to Evade any attack' }
-        ];
-        
-        let c1 = attributes[Math.floor(Math.random() * attributes.length)];
-        let r1 = { type: 'attribute', value: c1.id, name: '+1 ' + c1.name, icon: c1.icon, desc: c1.desc };
-        
-        let r2 = { type: 'gold', value: 500, name: '500 DPI', icon: '💰', desc: 'Currency for trades and forging' };
-        
-        let fragments = ['Humano', 'Elfo', 'Orc', 'Anão'];
-        let frag = fragments[Math.floor(Math.random() * fragments.length)];
-        let r3 = { type: 'item', item_name: 'Fragmento de ' + frag, rarity: 'Rare', category: 'Fragment', name: frag + ' Fragment', icon: '🧩', desc: 'Collect 5 to transmute into this race' };
-
-        let optionsHtml = [r1, r2, r3].map((opt, idx) => `
-            <div onclick="window.claimAccountReward(${idx})" onmouseover="this.style.transform='translateY(-10px)'; this.style.borderColor='rgba(255,174,0,0.6)'; this.style.boxShadow='0 10px 30px rgba(255,174,0,0.3), inset 0 0 20px rgba(255,174,0,0.1)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(255,255,255,0.1)'; this.style.boxShadow='inset 0 0 20px rgba(255,255,255,0.02)';" style="background: rgba(20, 25, 30, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; width: 200px; padding: 20px; text-align: center; cursor: pointer; transition: 0.2s; color: #fff; box-shadow: inset 0 0 20px rgba(255,255,255,0.02);">
-                <div style="font-size: 40px; margin-bottom: 10px;">${opt.icon}</div>
-                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #ffae00;">${opt.name}</div>
-                <div style="font-size: 12px; color: #b0bec5;">${opt.desc}</div>
-            </div>
-        `).join('');
-
-        window.currentRewardOptions = [r1, r2, r3];
-
-        rewardModal.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 30px;">
-                <h1 style="color: #fff; text-shadow: 0 0 15px rgba(255,174,0,0.8); font-size: 36px; letter-spacing: 4px; font-weight: 900;">CHOOSE YOUR DESTINY</h1>
-                <p style="color: #b0bec5; font-size: 14px;">You have <span style="color: #ffae00; font-weight:bold; font-size:20px;">${window.pendingAccountRewards}</span> pending account rewards.</p>
-                <div style="display: flex; gap: 20px;">
-                    ${optionsHtml}
-                </div>
-                <button onclick="document.getElementById('reward-selection-modal').style.display='none'" class="hud-btn" style="margin-top:20px; padding: 12px 24px; width:auto; border-radius: 8px;">Postpone Choice</button>
-            </div>
-        `;
-        rewardModal.style.display = 'flex';
-    };
-
-    window.claimAccountReward = async function(index) {
-        let opt = window.currentRewardOptions[index];
-        if (!opt) return;
-        
-        try {
-            let res = await fetch('backend/api_save_event.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    event: 'claim_account_reward',
-                    reward_type: opt.type,
-                    reward_value: opt.value,
-                    item_name: opt.item_name,
-                    rarity: opt.rarity,
-                    category: opt.category
-                })
-            });
-            let data = await res.json();
-            
-            if (data.success) {
-                const freshRes = await fetch('backend/api_player.php');
-                const freshData = await freshRes.json();
-                if (freshData.success) {
-                    window.playerData = freshData.player;
-                    window.pendingAccountRewards = parseInt(window.playerData.pending_account_rewards) || 0;
-                    window.accountLevel = parseInt(window.playerData.account_level) || 1;
-                    window.recalculatePlayerStats();
-                }
-                
-                if (typeof window.showFloatingText === 'function') {
-                    window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 80, "REWARD CLAIMED!", "#00e5ff");
-                }
-                
-                if (window.pendingAccountRewards > 0) {
-                    window.openRewardModal(); 
-                } else {
-                    rewardModal.style.display = 'none';
-                    rewardBtn.style.display = 'none';
-                }
-            }
-        } catch(e) {}
-    };
-
-    rewardBtn.addEventListener('click', window.openRewardModal);
-
-    setInterval(() => {
-        if (typeof window.pendingAccountRewards !== 'undefined' && window.pendingAccountRewards > 0 && rewardModal.style.display === 'none') {
-            rewardBtn.style.display = 'flex';
-            let badge = document.getElementById('reward-badge');
-            if (badge) badge.innerText = window.pendingAccountRewards;
-        } else {
-            rewardBtn.style.display = 'none';
-        }
-    }, 1000);
 
     const chatContainer = document.getElementById('chat-container');
     const chatInput = document.getElementById('chat-input');
@@ -813,7 +689,7 @@ async function bootCursorEngine() {
 
     gameArea.addEventListener('mousedown', (e) => {
         if (window.isTacticalMode && window.canDragMap && !window.isDead) {
-            if (e.target.closest('.ui-window') || e.target.closest('.desktop-os-hud') || e.target.closest('.chat-container') || e.target.closest('#reward-selection-modal') || e.target.closest('#btn-account-reward')) return; 
+            if (e.target.closest('.ui-window') || e.target.closest('.desktop-os-hud') || e.target.closest('.chat-container')) return; 
             if (e.button === 0) { isDraggingMap = true; dragStartXMap = e.clientX; dragStartYMap = e.clientY; dragStartCamX = cameraX; dragStartCamY = cameraY; gameArea.style.cursor = "grabbing"; e.stopPropagation(); }
         }
     }, true);
@@ -965,15 +841,6 @@ async function bootCursorEngine() {
             earnedSkillPoints++;
             earnedStatPoints += 5;
             leveledUp = true;
-            
-            if (typeof window.highestRaceLevel !== 'undefined') {
-                if (window.playerLevel > window.highestRaceLevel) {
-                    window.highestRaceLevel = window.playerLevel;
-                    if (typeof window.pendingAccountRewards !== 'undefined') {
-                        window.pendingAccountRewards++;
-                    }
-                }
-            }
         }
         
         if (leveledUp) {
