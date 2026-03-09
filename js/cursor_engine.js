@@ -1,3 +1,4 @@
+// js/cursor_engine.js
 const SAFEPAD = { minX: 2100, maxX: 2900, minY: 2200, maxY: 2800 };
 
 window.playerData = null;
@@ -128,7 +129,7 @@ window.refreshSkillUI = function() {
                 window.playerSkills[key] = activeSkill; 
                 let slot = document.getElementById(`skill-${key}`);
                 if (slot) {
-                    slot.innerHTML = `<span class="key">${activeSkill.keyboard_key.toUpperCase()}</span><div style="position:absolute; top:-5px; right:-5px; background:rgba(0, 229, 255, 0.4); border: 1px solid rgba(0, 229, 255, 0.8); color:#fff; font-size:10px; font-weight:bold; padding:2px 5px; border-radius:4px; z-index:5; backdrop-filter: blur(4px);">${sLevel}</div><img src="${activeSkill.icon_path}" alt="${activeSkill.skill_name}" style="position:absolute; top:0; left:0; z-index:2; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; opacity: 0.9;" onerror="this.style.display='none'">`;
+                    slot.innerHTML = `<span class="key">${activeSkill.keyboard_key.toUpperCase()}</span><img src="${activeSkill.icon_path}" alt="${activeSkill.skill_name}" style="position:absolute; top:0; left:0; z-index:2; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; opacity: 0.9;" onerror="this.style.display='none'">`;
                     slot.title = `${activeSkill.skill_name} (Lv.${sLevel})\nCost: ${activeSkill.mana_cost} MP\nCooldown: ${activeSkill.cooldown_ms / 1000}s`;
                 }
             } else if (activeSkill.skill_type === 'Passive') { 
