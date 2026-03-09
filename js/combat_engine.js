@@ -1,3 +1,4 @@
+// js/combat_engine.js
 window.mobState = {};
 window.mobCacheDOM = {};
 window.combatWs = null; 
@@ -135,31 +136,11 @@ function bootCombatEngine() {
             }
         }
 
-        // ALERTA DE MODIFICAÇÃO: Sistema robusto de verificação de acerto
         if (data.type === 'mob_attack_player') {
-            let isMe = false;
-            
-            // Verificação 1: Elemento HTML
             const uiUserElement = document.getElementById('ui-username');
-            if (uiUserElement && data.targetUsername === uiUserElement.innerText.trim()) {
-                isMe = true;
-            }
-            
-            // Verificação 2: Objeto global do jogador
-            if (!isMe && window.playerData && window.playerData.username === data.targetUsername) {
-                isMe = true;
-            }
-            
-            // Verificação 3: Distância para as coordenadas alvo enviadas pelo servidor (Fallback)
-            if (!isMe && data.targetX !== undefined && data.targetY !== undefined) {
-                let dist = Math.hypot(window.globalPlayerX - data.targetX, window.globalPlayerY - data.targetY);
-                if (dist < 10) { 
-                    isMe = true;
-                }
-            }
-
-            if (isMe) {
-                window.hurtPlayer(data.damage);
+            if (uiUserElement) {
+                const myUsername = uiUserElement.innerText.trim();
+                if (data.targetUsername === myUsername) window.hurtPlayer(data.damage);
             }
         }
 
@@ -169,15 +150,20 @@ function bootCombatEngine() {
                 setTimeout(() => { if (window.mobCacheDOM[data.id]) { window.mobCacheDOM[data.id].remove(); delete window.mobCacheDOM[data.id]; delete window.mobState[data.id]; } }, 200);
 
                 if (data.tags.includes(window.myCombatTagId)) {
-                    window.playerKills++; document.getElementById('ui-kills').innerText = window.playerKills;
+                    window.playerKills++; 
+                    const uiKills = document.getElementById('ui-kills');
+                    if (uiKills) uiKills.innerText = window.playerKills;
                     
                     let xpMultiplier = 1 + ((window.playerXpBonus || 0) / 100);
                     let gainedXp = Math.floor((data.expYield || 15) * xpMultiplier);
                     window.playerXp += gainedXp; 
                     
-                    const uiCharXp = document.getElementById('ui-char-xp'); if(uiCharXp) uiCharXp.innerText = `${window.playerXp} / ${window.playerNextLevelXp}`;
+                    const uiCharXp = document.getElementById('ui-char-xp'); 
+                    if (uiCharXp) uiCharXp.innerText = `${window.playerXp} / ${window.playerNextLevelXp}`;
 
-                    checkLevelUp();
+                    if (typeof window.checkLevelUp === 'function') window.checkLevelUp();
+                    if (typeof window.updateXpUI === 'function') window.updateXpUI();
+
                     sendRealTimeEvent({ event: 'update_stats', xp: window.playerXp, level: window.playerLevel, kills: window.playerKills, max_hp: window.playerMaxHp, current_hp: window.playerCurrentHp });
                     if (data.loot && data.loot.length > 0 && typeof spawnLootBag === 'function') spawnLootBag(data.x, data.y, data.loot);
                 }
@@ -204,49 +190,6 @@ function bootCombatEngine() {
         worldMap.appendChild(monster); 
         window.mobCacheDOM[mobData.id] = monster;
         window.mobState[mobData.id] = { currentX: mobData.x, currentY: mobData.y, targetX: mobData.x, targetY: mobData.y, hp: mobData.hp };
-    }
-
-    function checkLevelUp() {
-        let leveledUp = false;
-        let earnedSkillPoints = 0;
-        
-        while (window.playerXp >= window.playerNextLevelXp) {
-            window.playerXp -= window.playerNextLevelXp; 
-            window.playerLevel++; 
-            window.playerNextLevelXp = window.xpTable[window.playerLevel] || 99999999999;
-            window.playerMaxHp += 20; window.playerCurrentHp = window.playerMaxHp;
-            window.playerMaxEnergy += 10; window.playerEnergy = window.playerMaxEnergy; 
-            window.playerMaxMana += 10; window.playerMana = window.playerMaxMana;
-            window.playerShield = 0; 
-            earnedSkillPoints++;
-            leveledUp = true;
-            
-            if (typeof window.highestRaceLevel !== 'undefined') {
-                if (window.playerLevel > window.highestRaceLevel) {
-                    window.highestRaceLevel = window.playerLevel;
-                    if (typeof window.pendingAccountRewards !== 'undefined') {
-                        window.pendingAccountRewards++;
-                    }
-                }
-            }
-        }
-        
-        if (leveledUp) {
-            document.getElementById('ui-level-display').innerText = window.playerLevel;
-            document.getElementById('ui-char-level').innerText = window.playerLevel;
-            window.updateHealthBars(); window.updateEnergyUI(); window.updateMpUI();
-            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50, "RACE LEVEL UP!", "#00e5ff");
-            
-            if (earnedSkillPoints > 0) {
-                fetch('backend/api_save_event.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ event: 'add_skill_point', points: earnedSkillPoints })
-                }).catch(err => {});
-            }
-        }
-        if (typeof window.updateXpUI === 'function') window.updateXpUI();
-        return leveledUp;
     }
 
     window.damageAoE = function(x, y, radius, dmg) {
