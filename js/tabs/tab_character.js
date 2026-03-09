@@ -1,4 +1,3 @@
-// js/tabs/tab_character.js
 if(!document.getElementById('ks-rainbow-css')) {
     let style = document.createElement('style');
     style.id = 'ks-rainbow-css';
@@ -67,7 +66,7 @@ window.renderCharacterSheet = function() {
 
             let upBtn = (window.availableSkillPoints > 0) ? `<button onclick="window.upgradeSkill('${skill.skill_name}')" style="background:rgba(0, 230, 118, 0.2); border:1px solid rgba(0, 230, 118, 0.5); color:#00e676; font-weight:bold; width:22px; height:22px; border-radius:4px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; transition:0.2s; flex-shrink:0;">+</button>` : '';
             let typeColor = skill.skill_type === 'Passive' ? '#4caf50' : '#00e5ff';
-            let statsText = skill.skill_type === 'Active' ? `<span style="color:#00bfff;">MP: ${actualMana}</span> <span style="color:#aaa;">CD: ${skill.cooldown_ms/1000}s</span> <span style="color:#ff4444;">Dmg: ${actualDmg > 0 ? actualDmg : '-'}</span>` : `<span style="color:#4caf50;">Passive Effect</span>`;
+            let statsText = skill.skill_type === 'Active' ? `<span style="color:#00bfff;">MP: ${actualMana}</span> <span style="color:#aaa;">CD: ${skill.cooldown_ms/1000}s</span> <span style="color:#ff4444;">Dmg: ${actualDmg > 0 ? actualDmg : '-'}</span>` : `<span style="color:#4caf50;">Passiva</span>`;
 
             skillsHtml += `
                 <div style="display:flex; align-items:flex-start; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:8px; border-radius:6px; margin-bottom:6px; gap:10px;">
@@ -87,20 +86,13 @@ window.renderCharacterSheet = function() {
         });
     }
 
-    // Identificador robusto para garantir que a imagem sempre carregue baseado na classe
-    let raceStr = (p.race || 'Humano').trim().toLowerCase();
-    let charSprite = 'img/races/humano.png';
-    if (raceStr === 'anão' || raceStr === 'anao' || raceStr === 'dwarf') charSprite = 'img/races/anao.png';
-    else if (raceStr === 'elfo' || raceStr === 'elf') charSprite = 'img/races/elfo.png';
-    else if (raceStr === 'orc') charSprite = 'img/races/orc.png';
-
     let html = `
         <div style="display: flex; gap: 15px; width: 100%; box-sizing: border-box; align-items: stretch;">
             
             <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
                 <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                     <div class="char-preview-box" style="margin: 0 auto 10px auto; width: 80px; height: 80px;">
-                        <img id="ui-preview-img" src="${charSprite}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8)); image-rendering: pixelated;" onerror="this.src='img/races/humano.png'">
+                        <img id="ui-preview-img" src="${p.sprite_path}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8)); image-rendering: pixelated;">
                     </div>
                     <h2 style="color: #00e5ff; margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">${p.username}</h2>
                     <div style="color: #ffca28; font-size: 10px; font-weight: bold; margin-top:2px;">Lv. ${p.race_level || 1} ${p.race}</div>
@@ -190,23 +182,73 @@ function renderStatRow(name, code, val, canUpgrade, color, disabled = false, isR
 window.allocateStat = async function(statCode) {
     if (!window.playerData || parseInt(window.playerData.stat_points) <= 0) return;
     try {
+        // Atualização otimista na interface para resposta imediata
+        window.playerData.stat_points = parseInt(window.playerData.stat_points) - 1;
+        window.playerData['stat_' + statCode] = (parseInt(window.playerData['stat_' + statCode]) || 0) + 1;
+        window.renderCharacterSheet();
+        if (typeof window.recalculatePlayerStats === 'function') window.recalculatePlayerStats();
+        
         let res = await fetch('backend/api_save_event.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ event: 'allocate_stat_point', stat: statCode })
         });
         let data = await res.json();
+        
         if (data.success) {
-            window.playerData.stat_points = parseInt(window.playerData.stat_points) - 1;
-            window.playerData['stat_' + statCode] = parseInt(window.playerData['stat_' + statCode]) + 1;
+            // Sincroniza com os dados reais do backend
+            if (data.new_stat !== undefined) window.playerData['stat_' + statCode] = data.new_stat;
+            if (data.stat_points !== undefined) window.playerData.stat_points = data.stat_points;
             window.renderCharacterSheet();
             if (typeof window.recalculatePlayerStats === 'function') window.recalculatePlayerStats();
+        } else {
+            // Reverte em caso de erro
+            window.playerData.stat_points = parseInt(window.playerData.stat_points) + 1;
+            window.playerData['stat_' + statCode] = Math.max(0, (parseInt(window.playerData['stat_' + statCode]) || 0) - 1);
+            window.renderCharacterSheet();
         }
     } catch(e) {}
 };
 
+window.upgradeSkill = async function(skillName) {
+    if (!window.playerData || parseInt(window.playerData.skill_points) <= 0) return;
+    try {
+        let res = await fetch('backend/api_save_event.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'upgrade_skill', skill_name: skillName })
+        });
+        let data = await res.json();
+        
+        if (data.success) {
+            if (data.skill_points !== undefined) window.playerData.skill_points = data.skill_points;
+            else window.playerData.skill_points = Math.max(0, (parseInt(window.playerData.skill_points) || 0) - 1);
+            
+            if (data.skill_levels_json) window.playerData.skill_levels_json = data.skill_levels_json;
+            
+            window.renderCharacterSheet();
+            if (typeof window.recalculatePlayerStats === 'function') window.recalculatePlayerStats();
+            if (typeof window.refreshSkillUI === 'function') window.refreshSkillUI();
+        }
+    } catch(e) {}
+};
+
+// Render on-demand: sem setInterval custoso.
+// A character sheet renderiza ao abrir a janela ou quando dados mudam.
 if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", () => { setInterval(window.renderCharacterSheet, 1000); });
+    document.addEventListener("DOMContentLoaded", () => {
+        let attempts = 0;
+        let waitInterval = setInterval(() => {
+            attempts++;
+            if (window.playerData) { clearInterval(waitInterval); window.renderCharacterSheet(); }
+            if (attempts > 50) clearInterval(waitInterval);
+        }, 100);
+    });
 } else {
-    setInterval(window.renderCharacterSheet, 1000);
+    let attempts = 0;
+    let waitInterval = setInterval(() => {
+        attempts++;
+        if (window.playerData) { clearInterval(waitInterval); window.renderCharacterSheet(); }
+        if (attempts > 50) clearInterval(waitInterval);
+    }, 100);
 }

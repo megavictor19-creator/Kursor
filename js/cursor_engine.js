@@ -844,18 +844,40 @@ async function bootCursorEngine() {
         }
         
         if (leveledUp) {
-            document.getElementById('ui-level-display').innerText = window.playerLevel;
-            document.getElementById('ui-char-level').innerText = window.playerLevel;
+            const uiLevel = document.getElementById('ui-level-display');
+            if (uiLevel) uiLevel.innerText = window.playerLevel;
+
             window.updateHealthBars(); window.updateEnergyUI(); window.updateMpUI();
             window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50, "RACE LEVEL UP!", "#00e5ff");
+            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 70, `+${earnedStatPoints} Stat Pts  +${earnedSkillPoints} Skill Pt`, "#ffca28");
             
+            // Atualiza playerData localmente para a character sheet refletir imediatamente
+            if (window.playerData) {
+                window.playerData.stat_points = (parseInt(window.playerData.stat_points) || 0) + earnedStatPoints;
+                window.playerData.skill_points = (parseInt(window.playerData.skill_points) || 0) + earnedSkillPoints;
+                window.playerData.race_level = window.playerLevel;
+                window.playerData.race_xp = window.playerXp;
+            }
+
             if (earnedSkillPoints > 0 || earnedStatPoints > 0) {
                 fetch('backend/api_save_event.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ event: 'add_level_points', skill_points: earnedSkillPoints, stat_points: earnedStatPoints })
+                }).then(r => r.json()).then(data => {
+                    // Sincroniza com o backend após salvar
+                    if (data.success && window.playerData) {
+                        window.playerData.stat_points = (parseInt(window.playerData.stat_points) || 0);
+                        window.playerData.skill_points = (parseInt(window.playerData.skill_points) || 0);
+                    }
                 }).catch(err => {});
             }
+
+            // Re-renderiza a character sheet se estiver aberta
+            if (typeof window.renderCharacterSheet === 'function') {
+                window.renderCharacterSheet();
+            }
+            window.refreshSkillUI();
         }
         if (typeof window.updateXpUI === 'function') window.updateXpUI();
         return leveledUp;

@@ -97,7 +97,17 @@ try {
             if ($pData && $pData['stat_points'] > 0) {
                 $stmtUpdate = $pdo->prepare("UPDATE players SET stat_points = stat_points - 1, stat_$stat = IFNULL(stat_$stat, 0) + 1 WHERE id = ?");
                 $stmtUpdate->execute([$playerId]);
-                echo json_encode(['success' => true]);
+                
+                // Fetch updated values to return securely
+                $stmtNew = $pdo->prepare("SELECT stat_points, stat_$stat FROM players WHERE id = ?");
+                $stmtNew->execute([$playerId]);
+                $newData = $stmtNew->fetch(PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true, 
+                    'new_stat' => $newData["stat_$stat"], 
+                    'stat_points' => $newData['stat_points']
+                ]);
             } else {
                 echo json_encode(['success' => false, 'error' => 'No stat points available']);
             }
@@ -161,7 +171,11 @@ try {
                 $stmtUp = $pdo->prepare("UPDATE player_unlocked_races SET skill_points = skill_points - 1, skill_levels_json = ? WHERE player_id = ? AND race_name = ?");
                 $stmtUp->execute([$newJson, $playerId, $pInfo['race']]);
                 
-                echo json_encode(['success' => true]);
+                echo json_encode([
+                    'success' => true,
+                    'skill_points' => $rData['skill_points'] - 1,
+                    'skill_levels_json' => $newJson
+                ]);
             } else {
                 echo json_encode(['success' => false, 'error' => 'No skill points available']);
             }
