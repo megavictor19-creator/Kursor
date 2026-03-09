@@ -126,7 +126,8 @@ setInterval(() => {
             m.targetX = nearestPlayer.x; m.targetY = nearestPlayer.y; currentSpeed = m.baseSpeed;
             if (minDist < 65 && (now - m.lastAttack > m.attackRate)) {
                 m.lastAttack = now;
-                broadcast({ type: 'mob_attack_player', targetUsername: nearestPlayer.username, damage: Math.max(1, m.dmg) });
+                // ALERTA DE MODIFICAÇÃO: Incluímos targetX e targetY para garantir a identificação correta do alvo no cliente
+                broadcast({ type: 'mob_attack_player', targetUsername: nearestPlayer.username, targetX: nearestPlayer.x, targetY: nearestPlayer.y, damage: Math.max(1, m.dmg) });
             }
         } else {
             currentSpeed = m.baseSpeed * 0.4;

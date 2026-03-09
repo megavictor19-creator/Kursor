@@ -135,11 +135,31 @@ function bootCombatEngine() {
             }
         }
 
+        // ALERTA DE MODIFICAÇÃO: Sistema robusto de verificação de acerto
         if (data.type === 'mob_attack_player') {
+            let isMe = false;
+            
+            // Verificação 1: Elemento HTML
             const uiUserElement = document.getElementById('ui-username');
-            if (uiUserElement) {
-                const myUsername = uiUserElement.innerText.trim();
-                if (data.targetUsername === myUsername) window.hurtPlayer(data.damage);
+            if (uiUserElement && data.targetUsername === uiUserElement.innerText.trim()) {
+                isMe = true;
+            }
+            
+            // Verificação 2: Objeto global do jogador
+            if (!isMe && window.playerData && window.playerData.username === data.targetUsername) {
+                isMe = true;
+            }
+            
+            // Verificação 3: Distância para as coordenadas alvo enviadas pelo servidor (Fallback)
+            if (!isMe && data.targetX !== undefined && data.targetY !== undefined) {
+                let dist = Math.hypot(window.globalPlayerX - data.targetX, window.globalPlayerY - data.targetY);
+                if (dist < 10) { 
+                    isMe = true;
+                }
+            }
+
+            if (isMe) {
+                window.hurtPlayer(data.damage);
             }
         }
 
