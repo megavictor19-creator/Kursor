@@ -457,6 +457,7 @@ function bootCombatEngine() {
             }
         }
         requestAnimationFrame(renderLoop);
+        if (typeof window._checkGoldProximity === 'function') window._checkGoldProximity();
     }
 }
 
@@ -465,166 +466,343 @@ if (document.readyState === 'loading') {
 } else {
     bootCombatEngine();
 }
+
 // ============================================================
-// SISTEMA DE LOOT AQW-STYLE
+// SISTEMA DE LOOT NO CHÃO — GOLD AUTO-COLETA + BAG DE ITENS
 // ============================================================
 (function() {
-    let lootQueue = [];
-    let lootPopupActive = false;
+    const worldMap = document.getElementById('worldMap');
+    const MAX_BAGS = 10;
+    const BAG_TTL  = 30000; // 30s
+    const GOLD_TTL = 30000;
+    const GOLD_RADIUS = 45; // px world-space
 
-    // Cria o container do popup se não existir
-    function ensureLootPopupDOM() {
-        if (document.getElementById('ks-loot-popup')) return;
-        const popup = document.createElement('div');
-        popup.id = 'ks-loot-popup';
-        popup.style.cssText = `
-            position: fixed;
-            bottom: 160px;
-            right: 24px;
-            width: 260px;
-            background: rgba(0,0,0,0.93);
-            border-radius: 10px;
-            padding: 14px 16px 12px;
-            z-index: 9000;
-            display: none;
-            flex-direction: column;
-            gap: 10px;
-            font-family: 'Segoe UI', sans-serif;
+    let groundBags  = []; // { el, items, expireAt, popupOpen }
+    let groundGolds = []; // { el, amount, expireAt }
+    let activeBagPopup = null; // { bagRef, el }
+
+    // ── CSS injetado uma vez ──────────────────────────────────
+    if (!document.getElementById('ks-loot-css')) {
+        const s = document.createElement('style');
+        s.id = 'ks-loot-css';
+        s.textContent = `
+            @keyframes ks-bag-idle { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+            @keyframes ks-bag-expire { to{opacity:0;transform:scale(0.5)} }
+            @keyframes ks-popup-in  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+            .ks-ground-bag {
+                position:absolute; width:32px; height:32px;
+                display:flex; flex-direction:column; align-items:center;
+                cursor:pointer; z-index:900; transform-origin:center bottom;
+                animation: ks-bag-idle 2s ease-in-out infinite;
+                pointer-events:all;
+            }
+            .ks-ground-bag img { width:28px; height:28px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.9)); }
+            .ks-bag-timer {
+                width:28px; height:3px; background:rgba(0,0,0,0.6);
+                border-radius:2px; overflow:hidden; margin-top:2px;
+            }
+            .ks-bag-timer-fill { height:100%; background:rgba(0,229,255,0.7); transition:width 0.5s linear; }
+            .ks-gold-coin {
+                position:absolute; width:20px; height:20px; z-index:890;
+                pointer-events:none; cursor:default;
+                animation: ks-bag-idle 1.5s ease-in-out infinite;
+            }
+            .ks-gold-coin img { width:20px; height:20px; filter:drop-shadow(0 1px 3px rgba(255,200,0,0.8)); }
+            .ks-bag-popup {
+                position:fixed; z-index:8000;
+                background:rgba(0,0,0,0.92);
+                border-radius:8px; padding:10px 12px;
+                min-width:220px; max-width:280px;
+                animation: ks-popup-in 0.15s ease-out;
+                pointer-events:all;
+            }
+            .ks-popup-item {
+                display:flex; align-items:center; gap:8px;
+                padding:5px 4px; border-radius:5px; cursor:pointer;
+                transition:background 0.1s;
+            }
+            .ks-popup-item:hover { background:rgba(255,255,255,0.07); }
+            .ks-popup-item img { width:26px; height:26px; object-fit:contain; flex-shrink:0; border-radius:4px; }
+            .ks-popup-take-all {
+                width:100%; padding:6px 0; margin-top:8px;
+                background:rgba(0,229,255,0.12); border:none; border-radius:5px;
+                color:#00e5ff; font-size:11px; font-weight:700;
+                letter-spacing:1px; cursor:pointer; transition:background 0.15s;
+            }
+            .ks-popup-take-all:hover { background:rgba(0,229,255,0.22); }
+            .rarity-Common    { color:#ccc; }
+            .rarity-Uncommon  { color:#4caf50; }
+            .rarity-Rare      { color:#2196f3; }
+            .rarity-Epic      { color:#9c27b0; }
+            .rarity-Legendary { color:#ffca28; }
         `;
+        document.head.appendChild(s);
+    }
+
+    // ── Spawn bag de itens no mapa ────────────────────────────
+    window.spawnLootBag = function(wx, wy, items) {
+        if (!worldMap || !items || items.length === 0) return;
+
+        // Limita bags simultâneas
+        if (groundBags.length >= MAX_BAGS) {
+            const oldest = groundBags.shift();
+            removeBag(oldest, true);
+        }
+
+        const el = document.createElement('div');
+        el.className = 'ks-ground-bag';
+        el.style.left  = (wx - 16) + 'px';
+        el.style.top   = (wy - 16) + 'px';
+        el.innerHTML = `
+            <img src="img/items/loot_bag.png" onerror="this.src='img/items/default.png'">
+            <div class="ks-bag-timer"><div class="ks-bag-timer-fill" style="width:100%"></div></div>
+        `;
+        worldMap.appendChild(el);
+
+        const bagRef = { el, items: [...items], expireAt: Date.now() + BAG_TTL, popupOpen: false };
+        groundBags.push(bagRef);
+
+        // Animação da barra de tempo
+        requestAnimationFrame(() => {
+            const fill = el.querySelector('.ks-bag-timer-fill');
+            if (fill) { fill.style.transition = `width ${BAG_TTL}ms linear`; fill.style.width = '0%'; }
+        });
+
+        // Clique abre popup
+        el.addEventListener('click', (e) => { e.stopPropagation(); openBagPopup(bagRef, e); });
+
+        // Auto-expirar
+        bagRef._timer = setTimeout(() => removeBag(bagRef, true), BAG_TTL);
+    };
+
+    function removeBag(bagRef, animated) {
+        if (!bagRef || !bagRef.el) return;
+        clearTimeout(bagRef._timer);
+        if (activeBagPopup && activeBagPopup.bagRef === bagRef) closeBagPopup();
+        if (animated) {
+            bagRef.el.style.animation = 'ks-bag-expire 0.4s ease-out forwards';
+            setTimeout(() => bagRef.el.remove(), 400);
+        } else {
+            bagRef.el.remove();
+        }
+        groundBags = groundBags.filter(b => b !== bagRef);
+    }
+
+    // ── Popup da bag ─────────────────────────────────────────
+    function openBagPopup(bagRef, clickEvent) {
+        if (activeBagPopup) closeBagPopup();
+        if (bagRef.items.length === 0) { removeBag(bagRef, true); return; }
+
+        const popup = document.createElement('div');
+        popup.className = 'ks-bag-popup';
         document.body.appendChild(popup);
 
-        // CSS de animação
-        if (!document.getElementById('ks-loot-css')) {
-            const s = document.createElement('style');
-            s.id = 'ks-loot-css';
-            s.textContent = `
-                @keyframes ks-loot-in {
-                    from { opacity: 0; transform: translateY(12px); }
-                    to   { opacity: 1; transform: translateY(0); }
-                }
-                #ks-loot-popup { animation: ks-loot-in 0.2s ease-out; }
-                .ks-loot-btn {
-                    flex: 1; padding: 7px 0; border: none; border-radius: 6px;
-                    font-size: 12px; font-weight: bold; cursor: pointer;
-                    letter-spacing: 1px; transition: filter 0.15s;
-                }
-                .ks-loot-btn:hover { filter: brightness(1.2); }
-                .ks-loot-btn.yes { background: rgba(0,200,100,0.25); color: #00e676; }
-                .ks-loot-btn.no  { background: rgba(255,60,60,0.15);  color: #ff5555; }
-                .rarity-Common   { color: #ccc; }
-                .rarity-Uncommon { color: #4caf50; }
-                .rarity-Rare     { color: #2196f3; }
-                .rarity-Epic     { color: #9c27b0; }
-                .rarity-Legendary{ color: #ffca28; text-shadow: 0 0 8px rgba(255,200,0,0.6); }
+        const renderPopup = () => {
+            if (bagRef.items.length === 0) { closeBagPopup(); removeBag(bagRef, true); return; }
+            popup.innerHTML = `
+                <div style="font-size:9px;color:#666;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:5px;">Loot</div>
+                ${bagRef.items.map((item, idx) => `
+                    <div class="ks-popup-item" draggable="true"
+                        data-idx="${idx}"
+                        ondragstart="window._lootDragStart(event,${idx})"
+                        onclick="window._lootItemClick(event,${idx})">
+                        <img src="${item.icon_path || 'img/items/default.png'}" onerror="this.src='img/items/default.png'">
+                        <span class="rarity-${item.rarity||'Common'}" style="font-size:12px;font-weight:600;">${item.name}</span>
+                    </div>
+                `).join('')}
+                <button class="ks-popup-take-all" onclick="window._lootTakeAll()">⬆ PEGAR TUDO</button>
             `;
-            document.head.appendChild(s);
-        }
+        };
+        renderPopup();
+
+        // Posicionar perto do clique mas dentro da tela
+        const px = Math.min(clickEvent.clientX + 10, window.innerWidth - 300);
+        const py = Math.min(clickEvent.clientY - 20, window.innerHeight - 300);
+        popup.style.left = px + 'px';
+        popup.style.top  = py + 'px';
+
+        activeBagPopup = { bagRef, el: popup, renderPopup };
+        bagRef.popupOpen = true;
     }
 
-    function showNextLoot() {
-        if (lootQueue.length === 0) {
-            lootPopupActive = false;
-            const popup = document.getElementById('ks-loot-popup');
-            if (popup) popup.style.display = 'none';
-            return;
-        }
-        lootPopupActive = true;
-        const item = lootQueue.shift();
-        ensureLootPopupDOM();
-        const popup = document.getElementById('ks-loot-popup');
-
-        const rarityClass = item.rarity ? `rarity-${item.rarity}` : 'rarity-Common';
-        const isGold = item.type === 'gold';
-        const iconSrc = item.icon_path || 'img/items/gold_coins.png';
-        const amount  = Math.floor(item.amount || 1);
-        const nameStr = isGold ? `<span style="color:#ffca28; font-weight:bold;">${amount} Gold</span>` 
-                               : `<span class="${rarityClass}" style="font-weight:bold;">${item.name}</span>`;
-        const subStr  = isGold ? `<span style="color:#888; font-size:10px;">Drop de ouro</span>`
-                               : `<span style="color:#888; font-size:10px;">${item.rarity || 'Common'} · ${item.category || 'Item'}</span>`;
-
-        // Verifica espaço se for item
-        const hasSpace = isGold || ((window._bagUsed || 0) < 20);
-        const noSpaceWarning = (!isGold && !hasSpace) ? `<div style="text-align:center; color:#ff5555; font-size:10px; margin-top:-4px;">⚠ Bolsa cheia!</div>` : '';
-
-        popup.innerHTML = `
-            <div style="display:flex; align-items:center; gap:12px;">
-                <img src="${iconSrc}" style="width:44px; height:44px; object-fit:contain; border-radius:6px; background:rgba(255,255,255,0.04);" onerror="this.src='img/items/default.png'">
-                <div style="display:flex; flex-direction:column; gap:2px;">
-                    ${nameStr}
-                    ${subStr}
-                </div>
-            </div>
-            ${noSpaceWarning}
-            <div style="display:flex; gap:8px; margin-top:2px;">
-                <button class="ks-loot-btn yes" id="ks-loot-yes">${(!isGold && !hasSpace) ? 'SEM ESPAÇO' : '✔ ACEITAR'}</button>
-                <button class="ks-loot-btn no"  id="ks-loot-no">✘ IGNORAR</button>
-            </div>
-        `;
-        popup.style.display = 'flex';
-        popup.style.animation = 'none';
-        void popup.offsetWidth;
-        popup.style.animation = '';
-
-        // Auto-aceita gold
-        if (isGold) {
-            setTimeout(() => acceptLoot(item), 400);
-            return;
-        }
-
-        document.getElementById('ks-loot-yes').onclick = () => {
-            if (!isGold && !hasSpace) { showNextLoot(); return; }
-            acceptLoot(item);
-        };
-        document.getElementById('ks-loot-no').onclick = () => {
-            window.showFloatingText && window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `Ignorado: ${item.name}`, '#888');
-            showNextLoot();
-        };
-
-        // Timeout de 12s para ignorar automaticamente
-        const autoTimer = setTimeout(() => { showNextLoot(); }, 12000);
-        popup._autoTimer = autoTimer;
+    function closeBagPopup() {
+        if (!activeBagPopup) return;
+        activeBagPopup.el.remove();
+        activeBagPopup.bagRef.popupOpen = false;
+        activeBagPopup = null;
     }
 
-    function acceptLoot(item) {
-        if (item._autoTimer) clearTimeout(item._autoTimer);
-        const popup = document.getElementById('ks-loot-popup');
-        if (popup) popup._autoTimer && clearTimeout(popup._autoTimer);
+    // Fechar popup ao clicar fora
+    document.addEventListener('click', (e) => {
+        if (activeBagPopup && !activeBagPopup.el.contains(e.target)) closeBagPopup();
+    });
 
-        if (item.type === 'gold') {
-            const amt = Math.floor(item.amount || 1);
-            window.playerGold = (window.playerGold || 0) + amt;
-            const uiGold = document.getElementById('ui-bag-gold');
-            if (uiGold) uiGold.innerText = window.playerGold + ' DPI';
-            window.showFloatingText && window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${amt} Gold`, '#ffca28');
-            fetch('backend/api_inventory.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'add_gold', amount: amt })
-            }).catch(() => {});
-        } else {
-            window.showFloatingText && window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${item.name}`, item.color || '#fff');
-            fetch('backend/api_inventory.php', {
+    // ── Pegar item individual (clique rápido) ────────────────
+    window._lootItemClick = async function(e, idx) {
+        e.stopPropagation();
+        if (!activeBagPopup) return;
+        const bagRef = activeBagPopup.bagRef;
+        const item = bagRef.items[idx];
+        if (!item) return;
+        const ok = await collectItem(item);
+        if (ok) {
+            bagRef.items.splice(idx, 1);
+            if (bagRef.items.length === 0) { closeBagPopup(); removeBag(bagRef, true); }
+            else activeBagPopup.renderPopup();
+        }
+    };
+
+    // ── Drag do item para o inventário ───────────────────────
+    window._lootDragStart = function(e, idx) {
+        e.dataTransfer.setData('loot-idx', idx);
+        e.dataTransfer.effectAllowed = 'copy';
+    };
+
+    // O bag-container aceita drop de itens de loot
+    document.addEventListener('DOMContentLoaded', () => {
+        const bagContainer = document.getElementById('bag-container');
+        if (!bagContainer) return;
+        bagContainer.addEventListener('dragover', (e) => {
+            if (e.dataTransfer.types.includes('loot-idx')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+        });
+        bagContainer.addEventListener('drop', async (e) => {
+            const idx = e.dataTransfer.getData('loot-idx');
+            if (idx === '' || !activeBagPopup) return;
+            e.preventDefault();
+            const bagRef = activeBagPopup.bagRef;
+            const item = bagRef.items[parseInt(idx)];
+            if (!item) return;
+            const ok = await collectItem(item);
+            if (ok) {
+                bagRef.items.splice(parseInt(idx), 1);
+                if (bagRef.items.length === 0) { closeBagPopup(); removeBag(bagRef, true); }
+                else activeBagPopup.renderPopup();
+            }
+        });
+    });
+
+    // ── Pegar tudo ───────────────────────────────────────────
+    window._lootTakeAll = async function() {
+        if (!activeBagPopup) return;
+        const bagRef = activeBagPopup.bagRef;
+        let skipped = 0;
+        const toCollect = [...bagRef.items];
+        for (const item of toCollect) {
+            const ok = await collectItem(item);
+            if (ok) bagRef.items.splice(bagRef.items.indexOf(item), 1);
+            else skipped++;
+        }
+        if (skipped > 0) window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50, `Bag cheia! ${skipped} item(s) deixado(s)`, '#ff5555');
+        if (bagRef.items.length === 0) { closeBagPopup(); removeBag(bagRef, true); }
+        else activeBagPopup.renderPopup();
+    };
+
+    // ── Coleta efetiva de item ────────────────────────────────
+    async function collectItem(item) {
+        const used = window._bagUsed || 0;
+        if (used >= 20) {
+            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, 'Bag cheia!', '#ff5555');
+            return false;
+        }
+        try {
+            const res = await fetch('backend/api_inventory.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'add_item', item_name: item.name, rarity: item.rarity || 'Common', category: item.category || 'Core' })
-            }).then(r => r.json()).then(d => {
-                if (d.success) {
-                    window._bagUsed = (window._bagUsed || 0) + 1;
-                    if (typeof window.loadInventoryData === 'function') window.loadInventoryData();
-                }
-            }).catch(() => {});
-        }
-        showNextLoot();
+            });
+            const data = await res.json();
+            if (data.success) {
+                window._bagUsed = (window._bagUsed || 0) + 1;
+                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${item.name}`, item.color || '#fff');
+                if (typeof window.loadInventoryData === 'function') window.loadInventoryData();
+                return true;
+            }
+            if (data.error === 'Inventory full') {
+                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, 'Bag cheia!', '#ff5555');
+            }
+            return false;
+        } catch { return false; }
     }
 
-    window.pushLootQueue = function(lootArr) {
-        if (!Array.isArray(lootArr)) return;
-        lootArr.forEach(l => lootQueue.push(l));
-        if (!lootPopupActive) showNextLoot();
+    // ── Spawn de moeda de ouro ───────────────────────────────
+    window.spawnGoldCoin = function(wx, wy, amount) {
+        if (!worldMap || amount <= 0) return;
+        const el = document.createElement('div');
+        el.className = 'ks-gold-coin';
+        // Leve offset aleatório para não empilhar no mesmo px
+        const ox = (Math.random() - 0.5) * 30;
+        const oy = (Math.random() - 0.5) * 20;
+        el.style.left = (wx + ox - 10) + 'px';
+        el.style.top  = (wy + oy - 10) + 'px';
+        el.innerHTML = `<img src="img/items/gold_coins.png" onerror="this.src='img/items/default.png'">`;
+        worldMap.appendChild(el);
+
+        const coinRef = { el, amount, expireAt: Date.now() + GOLD_TTL, collected: false };
+        groundGolds.push(coinRef);
+
+        // Fade automático aos 25s, remoção aos 30s
+        setTimeout(() => { if (!coinRef.collected) el.style.transition = 'opacity 5s'; el.style.opacity = '0'; }, BAG_TTL - 5000);
+        setTimeout(() => removeGold(coinRef), GOLD_TTL);
+        return coinRef;
     };
 
-    // Compatibilidade com chamadas antigas
-    window.spawnLootBag = function(x, y, lootArr) {
-        window.pushLootQueue(lootArr);
+    function removeGold(coinRef) {
+        if (!coinRef || !coinRef.el) return;
+        coinRef.el.remove();
+        groundGolds = groundGolds.filter(g => g !== coinRef);
+    }
+
+    async function collectGold(coinRef) {
+        if (coinRef.collected) return;
+        coinRef.collected = true;
+        const amt = coinRef.amount;
+        removeGold(coinRef);
+        window.playerGold = (window.playerGold || 0) + amt;
+        const uiGold = document.getElementById('ui-bag-gold');
+        if (uiGold) uiGold.innerText = window.playerGold + ' DPI';
+        window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${amt} DPI`, '#ffca28');
+        fetch('backend/api_inventory.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add_gold', amount: amt })
+        }).catch(() => {});
+    }
+
+    // ── gameLoop hook: verifica proximidade moedas ───────────
+    // Injeta verificação no renderLoop via monkey-patch mínimo
+    let _goldCheckFrame = 0;
+    const _origRaf = window.requestAnimationFrame.bind(window);
+    window._checkGoldProximity = function() {
+        if (groundGolds.length === 0) return;
+        const px = window.globalPlayerX;
+        const py = window.globalPlayerY;
+        groundGolds.filter(g => !g.collected).forEach(g => {
+            const gx = parseFloat(g.el.style.left) + 10;
+            const gy = parseFloat(g.el.style.top)  + 10;
+            if (Math.hypot(px - gx, py - gy) < GOLD_RADIUS) collectGold(g);
+        });
     };
+
+    // ── Tratar personal_loot do server ───────────────────────
+    // Intercepta onmessage do combatWs depois que foi definido
+    const _waitForWs = setInterval(() => {
+        if (!window.combatWs) return;
+        clearInterval(_waitForWs);
+        const _origOnMsg = window.combatWs.onmessage;
+        window.combatWs.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'personal_loot') {
+                    const goldItems  = data.loot.filter(l => l.type === 'gold');
+                    const itemsOnly  = data.loot.filter(l => l.type !== 'gold');
+                    // Gold: moeda no chão
+                    goldItems.forEach(g => window.spawnGoldCoin(data.x, data.y, Math.floor(g.amount)));
+                    // Itens: bag no chão
+                    if (itemsOnly.length > 0) window.spawnLootBag(data.x, data.y, itemsOnly);
+                    return;
+                }
+            } catch {}
+            if (_origOnMsg) _origOnMsg.call(this, event);
+        };
+    }, 100);
+
 })();

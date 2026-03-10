@@ -15,6 +15,8 @@ window.buildBagSlots = function() {
                 if (this.classList.contains('empty-slot')) { e.preventDefault(); return; }
                 window.draggedSlot = this;
                 e.dataTransfer.effectAllowed = 'move';
+                // Passa o item_id para drops em outros elementos (char sheet)
+                if (this.dataset.itemId) e.dataTransfer.setData('text/plain', this.dataset.itemId);
                 setTimeout(() => this.style.opacity = '0.4', 0);
             });
             
@@ -133,38 +135,11 @@ window.loadInventoryData = async function() {
         
         if (data.success) {
             const items = data.inventory;
+            // Salva globalmente para uso na character sheet
+            window._lastInventory = items;
+            window._bagUsed = items.filter(i => i.is_equipped == 0).length;
+
             const bagSlots = document.querySelectorAll('.bag-slot');
-            let bagIndex = 0;
-
-            const equipDefaults = {
-                'pet': '🐲',
-                'wing': '🪽',
-                'aura': '✨',
-                'trail': '☄️',
-                'halo': '💫'
-            };
-
-            const equipCategories = ['pet', 'wing', 'aura', 'trail', 'halo'];
-            equipCategories.forEach(cat => {
-                let eqSlot = document.getElementById(`eq-${cat}`);
-                if (eqSlot) {
-                    eqSlot.className = 'slot empty-slot';
-                    eqSlot.title = cat.charAt(0).toUpperCase() + cat.slice(1);
-                    eqSlot.innerHTML = equipDefaults[cat] || ''; 
-                    eqSlot.style.borderColor = '';
-                    eqSlot.style.backgroundColor = '';
-                    eqSlot.style.boxShadow = '';
-                    eqSlot.removeAttribute('data-item-id');
-                }
-            });
-
-            document.querySelectorAll('.equip-overlay').forEach(el => el.remove());
-            const charPreviewBox = document.querySelector('.char-preview-box');
-            const mainCharImg = document.getElementById('ui-preview-img');
-            if (mainCharImg) {
-                mainCharImg.style.position = 'relative';
-                mainCharImg.style.zIndex = '5'; 
-            }
 
             bagSlots.forEach(slot => {
                 slot.className = 'slot bag-slot empty-slot';
@@ -181,111 +156,73 @@ window.loadInventoryData = async function() {
                 max_hp: 0, max_mana: 0, max_energy: 0, base_damage: 0
             };
 
-            let equippedItems = items.filter(i => i.is_equipped == 1);
+            let equippedItems   = items.filter(i => i.is_equipped == 1);
             let unequippedItems = items.filter(i => i.is_equipped == 0);
 
+            // Agrupa bag por nome (stack)
             let groupedBag = {};
             unequippedItems.forEach(item => {
                 let key = item.item_name;
-                if (!groupedBag[key]) {
-                    groupedBag[key] = { ...item, count: 1 };
-                } else {
-                    groupedBag[key].count++;
-                }
+                if (!groupedBag[key]) groupedBag[key] = { ...item, count: 1 };
+                else groupedBag[key].count++;
             });
 
+            // Soma stats dos equipados
             equippedItems.forEach(item => {
-                let catId = item.category.toLowerCase();
-                
-                if (catId === 'wings') catId = 'wing';
-                if (catId === 'auras') catId = 'aura';
-                if (catId === 'pets') catId = 'pet';
-                if (catId === 'trails') catId = 'trail';
-                if (catId === 'halos') catId = 'halo';
-
-                if (item.stats_json) {
+                const statsRaw = item.tpl_stats || item.stats_json || null;
+                if (statsRaw) {
                     try {
-                        let stats = JSON.parse(item.stats_json);
+                        let stats = JSON.parse(statsRaw);
                         for (let key in stats) {
-                            if (window.equipmentStats[key] !== undefined) {
-                                window.equipmentStats[key] += parseFloat(stats[key]);
-                            } else {
-                                window.equipmentStats[key] = parseFloat(stats[key]);
-                            }
+                            if (window.equipmentStats[key] !== undefined) window.equipmentStats[key] += parseFloat(stats[key]);
+                            else window.equipmentStats[key] = parseFloat(stats[key]);
                         }
                     } catch(e) {}
                 }
-
-                let iconPath = item.icon_path || 'img/items/default.png';
-                let equipPath = item.equip_path || 'img/equip/default.png';
-                let imgTag = `<img src="${iconPath}" style="width: 80%; height: 80%; object-fit: contain; pointer-events: none;" onerror="this.onerror=null; this.src='img/items/default.png';">`;
-
-                let eqSlot = document.getElementById(`eq-${catId}`);
-                if (eqSlot && equipCategories.includes(catId)) {
-                    eqSlot.dataset.itemId = item.id;
-                    eqSlot.classList.remove('empty-slot');
-                    eqSlot.classList.add(item.rarity.toLowerCase());
-                    eqSlot.title = `${item.item_name} (${item.rarity})`;
-                    eqSlot.innerHTML = imgTag;
-
-                    if (equipPath && equipPath !== 'img/equip/default.png') {
-                        let overlay = document.createElement('img');
-                        overlay.src = equipPath;
-                        overlay.className = 'equip-overlay';
-                        Object.assign(overlay.style, { position: 'absolute', width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' });
-                        if (catId === 'wing' || catId === 'aura' || catId === 'trail') {
-                            overlay.style.zIndex = '0';
-                        } else {
-                            overlay.style.zIndex = '10';
-                        }
-                        charPreviewBox.appendChild(overlay);
-                    }
-                }
             });
 
+            // Preenche bag slots
+            let bagIndex = 0;
             Object.values(groupedBag).forEach(item => {
-                if (bagIndex < 20) {
-                    let bSlot = bagSlots[bagIndex];
-                    bSlot.dataset.itemId = item.id;
-                    bSlot.classList.remove('empty-slot');
-                    bSlot.classList.add(item.rarity.toLowerCase());
-                    bSlot.title = `${item.item_name} (${item.rarity})`;
+                if (bagIndex >= 20) return;
+                let bSlot = bagSlots[bagIndex];
+                if (!bSlot) return;
+                bSlot.dataset.itemId = item.id;
+                bSlot.classList.remove('empty-slot');
+                bSlot.classList.add(item.rarity.toLowerCase());
+                bSlot.title = `${item.item_name} (${item.rarity})`;
 
-                    let imgStyle = "width: 80%; height: 80%; object-fit: contain; pointer-events: none;";
-                    let fallbackImg = 'img/items/default.png';
-                    let finalIconPath = item.icon_path || fallbackImg;
+                let imgStyle  = "width:80%;height:80%;object-fit:contain;pointer-events:none;";
+                let fallback  = 'img/items/default.png';
+                let iconPath  = item.icon_path || fallback;
 
-                    if (item.category.toLowerCase() === 'fragment' || item.item_name.toLowerCase().includes('fragment')) {
-                        bSlot.classList.remove(item.rarity.toLowerCase()); 
-                        bSlot.style.borderColor = 'rgba(255, 64, 176, 0.6)'; 
-                        bSlot.style.backgroundColor = 'rgba(255, 64, 176, 0.05)';
-                        bSlot.style.boxShadow = 'inset 0 0 10px rgba(255, 64, 176, 0.2)';
-
-                        imgStyle += " filter: brightness(0.45) contrast(1.2) opacity(0.95) drop-shadow(0 0 8px rgba(255, 64, 176, 0.8)); transform: scale(0.85);";
-                        
-                        let itemNameLower = item.item_name.toLowerCase();
-                        let rName = '';
-                        if (itemNameLower.includes('humano') || itemNameLower.includes('human')) rName = 'humano';
-                        else if (itemNameLower.includes('elfo') || itemNameLower.includes('elf')) rName = 'elfo';
-                        else if (itemNameLower.includes('orc')) rName = 'orc';
-                        else if (itemNameLower.includes('anão') || itemNameLower.includes('anao') || itemNameLower.includes('dwarf')) rName = 'anao';
-                        
-                        if (rName !== '') finalIconPath = `img/races/${rName}.png`;
-                    }
-
-                    let imgTag = `<img src="${finalIconPath}" style="${imgStyle}" onerror="this.onerror=null; this.src='${fallbackImg}';">`;
-                    let countBadge = item.count > 1 ? `<div class="item-stack-count" style="position: absolute; bottom: -5px; right: -5px; width: 18px; height: 18px; border-radius: 50%; background: rgba(20,20,20,0.95); border: 1px solid rgba(255,255,255,0.4); color: #fff; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.9); z-index: 10; pointer-events: none; padding: 0;">${item.count}</div>` : '';
-
-                    bSlot.innerHTML = imgTag + countBadge;
-                    bagIndex++;
+                if ((item.category||'').toLowerCase() === 'fragment' || item.item_name.toLowerCase().includes('fragment')) {
+                    bSlot.style.borderColor     = 'rgba(255,64,176,0.5)';
+                    bSlot.style.backgroundColor = 'rgba(255,64,176,0.04)';
+                    imgStyle += " filter:brightness(0.5) drop-shadow(0 0 6px rgba(255,64,176,0.8));";
+                    const rn = item.item_name.toLowerCase();
+                    if (rn.includes('human') || rn.includes('humano')) iconPath = 'img/races/humano.png';
+                    else if (rn.includes('elf') || rn.includes('elfo')) iconPath = 'img/races/elfo.png';
+                    else if (rn.includes('orc')) iconPath = 'img/races/orc.png';
+                    else if (rn.includes('dwarf') || rn.includes('anao') || rn.includes('anão')) iconPath = 'img/races/anao.png';
                 }
+
+                const countBadge = item.count > 1
+                    ? `<div style="position:absolute;bottom:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:rgba(20,20,20,0.95);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:9px;font-weight:bold;display:flex;align-items:center;justify-content:center;z-index:10;pointer-events:none;">${item.count}</div>`
+                    : '';
+
+                bSlot.innerHTML = `<img src="${iconPath}" style="${imgStyle}" onerror="this.src='${fallback}'">${countBadge}`;
+                bagIndex++;
             });
 
-            if (typeof window.recalculatePlayerStats === 'function') {
-                window.recalculatePlayerStats();
+            if (typeof window.recalculatePlayerStats === 'function') window.recalculatePlayerStats();
+            // Re-render char sheet se estiver aberta
+            const charWin = document.getElementById('window-character');
+            if (charWin && !charWin.classList.contains('hidden') && typeof window.renderCharacterSheet === 'function') {
+                window.renderCharacterSheet();
             }
         }
-    } catch (e) {}
+    } catch(e) {}
 };
 
 if (document.readyState === 'loading') {

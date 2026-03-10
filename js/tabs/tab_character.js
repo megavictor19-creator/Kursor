@@ -48,31 +48,25 @@ window.renderCharacterSheet = function() {
     let sp = (parseInt(p.max_energy) || 100) + (eq.max_energy || 0) + chaSp;
     let tDodge = dodge + dexDodge;
 
-    let equippedHtml = '';
-    {
-        const eqCats = ['pet','wing','aura','trail','halo'];
-        const eqIcons = { pet:'🐲', wing:'🪽', aura:'✨', trail:'☄️', halo:'💫' };
-        const equippedItems = (p.inventory || []).filter(i => parseInt(i.is_equipped) === 1);
-        equippedHtml = `
-            <div style="margin-bottom:10px; border-bottom:1px dashed rgba(255,255,255,0.07); padding-bottom:10px;">
-                <div style="font-size:9px; color:#8fa0b5; text-transform:uppercase; letter-spacing:1px; margin-bottom:7px;">Equipment</div>
-                <div style="display:flex; gap:7px; justify-content:center;">
-                    ${eqCats.map(cat => {
-                        const found = equippedItems.find(i => (i.category||'').toLowerCase() === cat || (i.category||'').toLowerCase() === cat+'s');
-                        const iconPath = found ? (found.icon_path || '') : '';
-                        const label   = found ? found.item_name : eqIcons[cat];
-                        const rarity  = found ? found.rarity.toLowerCase() : '';
-                        const inner   = iconPath 
-                            ? `<img src="${iconPath}" style="width:80%;height:80%;object-fit:contain;" onerror="this.src='img/items/default.png'">`
-                            : `<span style="opacity:0.3;font-size:14px;">${eqIcons[cat]}</span>`;
-                        return `<div title="${label}" style="width:36px;height:36px;border-radius:6px;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;position:relative;${rarity?'border:1px solid rgba(255,255,255,0.15)':'border:1px dashed rgba(255,255,255,0.08)'};">
-                            ${inner}
-                        </div>`;
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    }
+    // Equipment slots — drag-drop da bag para equipar
+    const eqCats   = ['pet','wing','aura','trail','halo'];
+    const eqIcons  = { pet:'🐲', wing:'🪽', aura:'✨', trail:'☄️', halo:'💫' };
+    const eqLabels = { pet:'Pet', wing:'Wing', aura:'Aura', trail:'Trail', halo:'Halo' };
+    const equippedItems = (window._lastInventory || []).filter(i => parseInt(i.is_equipped) === 1);
+
+    const equipSlotsHtml = eqCats.map(cat => {
+        const found    = equippedItems.find(i => (i.category||'').toLowerCase().replace(/s$/,'') === cat);
+        const iconPath = found ? (found.icon_path || '') : '';
+        const label    = found ? found.item_name + ' (' + found.rarity + ')' : eqLabels[cat];
+        const itemId   = found ? found.id : '';
+        const border   = found ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)';
+        const inner    = iconPath
+            ? '<img src="' + iconPath + '" style="width:82%;height:82%;object-fit:contain;pointer-events:none;" onerror="this.src=\'img/items/default.png\'">'
+            : '<span style="opacity:0.2;font-size:16px;pointer-events:none;">' + eqIcons[cat] + '</span>';
+        return '<div class="char-eq-slot" data-eq-cat="' + cat + '" data-item-id="' + itemId + '" title="' + label + '" style="width:40px;height:40px;border-radius:6px;background:rgba(0,0,0,0.45);display:flex;justify-content:center;align-items:center;position:relative;border:1px dashed ' + border + ';cursor:default;" ondragover="event.preventDefault()" ondragenter="this.style.borderColor=\'rgba(0,229,255,0.7)\'" ondragleave="this.style.borderColor=\'rgba(255,255,255,' + (found?'0.22':'0.07') + ')\'" ondrop="window._charSheetEquipDrop(event,this)">'
+             + inner
+             + '<span style="position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);font-size:7px;color:#555;white-space:nowrap;">' + eqLabels[cat] + '</span></div>';
+    }).join('');
 
     let skillsHtml = '';
     window.availableSkillPoints = parseInt(p.skill_points) || 0;
@@ -113,50 +107,66 @@ window.renderCharacterSheet = function() {
     }
 
     let html = `
-        <div style="display: flex; gap: 15px; width: 100%; box-sizing: border-box; align-items: stretch;">
+        <div style="display: flex; gap: 15px; width: 100%; box-sizing: border-box; align-items: flex-start;">
             
-            <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
+            <!-- Coluna esquerda -->
+            <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
+
+                <!-- Preview -->
                 <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                     <div class="char-preview-box" style="margin: 0 auto 10px auto; width: 80px; height: 80px;">
-                        <img id="ui-preview-img" src="${p.sprite_path}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.8)); image-rendering: pixelated;">
+                        <img id="ui-preview-img" src="${p.sprite_path}" style="width: 60px; height: 60px; object-fit: contain; image-rendering: pixelated;">
                     </div>
                     <h2 style="color: #00e5ff; margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">${p.username}</h2>
                     <div style="color: #ffca28; font-size: 10px; font-weight: bold; margin-top:2px;">Lv. ${p.race_level || 1} ${p.race}</div>
                     <div style="color: #aaa; font-size: 9px; margin-top:4px;">XP: ${parseInt(p.race_xp)} / ${window.playerNextLevelXp || 0}</div>
-                    <button class="menu-btn" style="margin-top: 10px; padding: 6px; font-size: 10px; background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.4); color: #00e5ff; font-weight:bold;" onclick="window.openRaceModal()">Transmute Soul</button>
+                    <button class="menu-btn" style="margin-top: 10px; padding: 6px; font-size: 10px; background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.3); color: #00e5ff;" onclick="window.openRaceModal()">Transmute Soul</button>
                 </div>
 
-                <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
-                    <h3 style="color: #8fa0b5; font-size: 10px; margin-top: 0; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; text-transform:uppercase; letter-spacing:1px;">Combat Stats</h3>
+                <!-- Equipment — logo abaixo do character -->
+                <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; border-bottom: 1px dashed rgba(255,255,255,0.07); padding-bottom: 5px;">
+                        <h3 style="color: #8fa0b5; font-size: 10px; margin: 0; text-transform:uppercase; letter-spacing:1px;">Equipment</h3>
+                        <span style="font-size:9px; color:#444; font-style:italic;">drag from bag</span>
+                    </div>
+                    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; padding-bottom:4px;">
+                        ${equipSlotsHtml}
+                    </div>
+                </div>
+
+                <!-- Combat Stats -->
+                <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;">
+                    <h3 style="color: #8fa0b5; font-size: 10px; margin: 0 0 8px 0; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px; text-transform:uppercase; letter-spacing:1px;">Combat Stats</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 11px;">
-                        <div style="display:flex; justify-content:space-between;"><span>Health</span> <span style="color: #00e676; font-weight: bold;">${hp}</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Mana</span> <span style="color: #00bfff; font-weight: bold;">${mp}</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Energy</span> <span style="color: #ffca28; font-weight: bold;">${sp}</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Damage</span> <span style="color: #ff4444; font-weight: bold;">${dmg}</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Kills</span> <span style="color: #fff; font-weight: bold;">${p.kills || 0}</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Health</span><span style="color:#00e676;font-weight:bold;">${hp}</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Mana</span><span style="color:#00bfff;font-weight:bold;">${mp}</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Damage</span><span style="color:#ff4444;font-weight:bold;">${dmg}</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Kills</span><span style="color:#fff;font-weight:bold;">${p.kills || 0}</span></div>
                     </div>
                 </div>
 
-                <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
-                    <h3 style="color: #8fa0b5; font-size: 10px; margin-top: 0; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; text-transform:uppercase; letter-spacing:1px;">Details</h3>
+                <!-- Details -->
+                <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;">
+                    <h3 style="color: #8fa0b5; font-size: 10px; margin: 0 0 8px 0; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px; text-transform:uppercase; letter-spacing:1px;">Details</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 10px;">
-                        <div style="display:flex; justify-content:space-between;"><span>Crit</span> <span style="color:#ffca28; font-weight:bold;">${cChance.toFixed(1)}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>C.Dmg</span> <span style="color:#ffca28; font-weight:bold;">${cDmg}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Area</span> <span style="color:#00bfff; font-weight:bold;">+${aDmg}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Target</span> <span style="color:#b388ff; font-weight:bold;">+${sDmg}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Melee</span> <span style="color:#ff4444; font-weight:bold;">+${melee}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Range</span> <span style="color:#00e676; font-weight:bold;">+${range}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Resist</span> <span style="color:#ff9800; font-weight:bold;">${resist.toFixed(1)}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Dodge</span> <span style="color:#00e676; font-weight:bold;">${tDodge.toFixed(1)}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>Loot</span> <span style="color:#ffca28; font-weight:bold;">+${loot}%</span></div>
-                        <div style="display:flex; justify-content:space-between;"><span>XP</span> <span style="color:#b388ff; font-weight:bold;">+${xp}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Crit</span><span style="color:#ffca28;font-weight:bold;">${cChance.toFixed(1)}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>C.Dmg</span><span style="color:#ffca28;font-weight:bold;">${cDmg}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Area</span><span style="color:#00bfff;font-weight:bold;">+${aDmg}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Target</span><span style="color:#b388ff;font-weight:bold;">+${sDmg}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Melee</span><span style="color:#ff4444;font-weight:bold;">+${melee}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Range</span><span style="color:#00e676;font-weight:bold;">+${range}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Resist</span><span style="color:#ff9800;font-weight:bold;">${resist.toFixed(1)}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Dodge</span><span style="color:#00e676;font-weight:bold;">${tDodge.toFixed(1)}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Loot</span><span style="color:#ffca28;font-weight:bold;">+${loot}%</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>XP</span><span style="color:#b388ff;font-weight:bold;">+${xp}%</span></div>
                     </div>
                 </div>
 
-                <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; display:flex; flex-direction:column;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px;">
+                <!-- Attributes -->
+                <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px;">
                         <h3 style="color: #ffae00; font-size: 10px; margin: 0; text-transform:uppercase; letter-spacing:1px;">Attributes</h3>
-                        <span style="font-size:10px; color:#fff; background:rgba(255,174,0,0.2); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,174,0,0.5); font-weight:bold;">Pts: ${statPoints}</span>
+                        <span style="font-size:10px; color:#fff; background:rgba(255,174,0,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,174,0,0.4); font-weight:bold;">Pts: ${statPoints}</span>
                     </div>
                     ${renderStatRow('Strength', 'STR', statSTR, statPoints > 0, '#ff4444')}
                     ${renderStatRow('Dexterity', 'DEX', statDEX, statPoints > 0, '#00e676')}
@@ -164,24 +174,22 @@ window.renderCharacterSheet = function() {
                     ${renderStatRow('Intelligence', 'INT', statINT, statPoints > 0, '#00bfff')}
                     ${renderStatRow('Wisdom', 'WIS', statWIS, statPoints > 0, '#b388ff')}
                     ${renderStatRow('Charisma', 'CHA', statCHA, statPoints > 0, '#ffca28')}
-                    ${renderStatRow('Aura', 'AUR', statAUR, false, '#fff', true, true)}
                 </div>
             </div>
 
-            <div style="flex: 1; display: flex; flex-direction: column; min-width: 260px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; overflow: hidden;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px;">
+            <!-- Coluna direita: Skills & Magic — sem scroll -->
+            <div style="flex: 1; display: flex; flex-direction: column; min-width: 240px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px;">
                     <h3 style="color: #8fa0b5; font-size: 10px; margin: 0; text-transform:uppercase; letter-spacing:1px;">Skills & Magic</h3>
                     <span style="font-size:9px; color:#aaa;">SP: <span style="color:#00e676; font-weight:bold; font-size:11px;">${window.availableSkillPoints}</span></span>
                 </div>
-                ${equippedHtml}
-                <div style="overflow-y: auto; flex-grow: 1; padding-right: 5px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
                     ${skillsHtml}
                 </div>
             </div>
 
         </div>
-    `;
-
+    `
     container.innerHTML = html;
 };
 
@@ -292,3 +300,40 @@ window.upgradeSkill = async function(skillName) {
         if (attempts > 60) clearInterval(wait);
     }, 100);
 })();
+// ============================================================
+// DROP handler: item da bag → slot de equipment na char sheet
+// ============================================================
+window._charSheetEquipDrop = async function(event, slotEl) {
+    event.preventDefault();
+    slotEl.style.borderColor = 'rgba(255,255,255,0.07)';
+
+    const itemId  = event.dataTransfer.getData('text/plain');
+    const eqCat   = slotEl.dataset.eqCat;
+    if (!itemId || !eqCat) return;
+
+    // Verifica categoria do item
+    const inventory = window._lastInventory || [];
+    const item = inventory.find(i => String(i.id) === String(itemId));
+    if (!item) return;
+
+    const itemCat = (item.category || '').toLowerCase().replace(/s$/, '');
+    if (itemCat !== eqCat) {
+        // Feedback visual de categoria errada
+        slotEl.style.borderColor = 'rgba(255,80,80,0.7)';
+        setTimeout(() => slotEl.style.borderColor = 'rgba(255,255,255,0.07)', 800);
+        return;
+    }
+
+    try {
+        const res = await fetch('backend/api_inventory.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'equip', item_id: itemId, slot: eqCat })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (typeof window.loadInventoryData === 'function') window.loadInventoryData();
+            window.renderCharacterSheet();
+        }
+    } catch(e) {}
+};

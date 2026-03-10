@@ -496,7 +496,7 @@ async function bootCursorEngine() {
     function initMultiplayer() {
         window.gameWs = new WebSocket('ws://127.0.0.1:8080');
         window.gameWs.onopen = () => { 
-            window.gameWs.send(JSON.stringify({ type: 'init', username: window.playerData.username, sprite: window.playerData.sprite_path, x: window.globalPlayerX, y: window.globalPlayerY })); 
+            window.gameWs.send(JSON.stringify({ type: 'init', username: window.playerData.username, sprite: window.playerData.sprite_path, x: window.globalPlayerX, y: window.globalPlayerY, combatTagId: window.myCombatTagId })); 
         };
         window.gameWs.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -565,9 +565,16 @@ async function bootCursorEngine() {
     });
     
     document.addEventListener('mousemove', (e) => { 
-        if (draggedWindow) { 
-            draggedWindow.style.left = `${e.clientX - dragOffsetX}px`; 
-            draggedWindow.style.top = `${e.clientY - dragOffsetY}px`; 
+        if (draggedWindow) {
+            const w = draggedWindow.offsetWidth  || 300;
+            const h = draggedWindow.offsetHeight || 200;
+            const margin = 4;
+            const rawLeft = e.clientX - dragOffsetX;
+            const rawTop  = e.clientY - dragOffsetY;
+            const clampedLeft = Math.max(margin, Math.min(window.innerWidth  - w - margin, rawLeft));
+            const clampedTop  = Math.max(margin, Math.min(window.innerHeight - h - margin, rawTop));
+            draggedWindow.style.left = clampedLeft + 'px';
+            draggedWindow.style.top  = clampedTop  + 'px';
         } 
     });
     document.addEventListener('mouseup', () => { draggedWindow = null; });
@@ -844,40 +851,18 @@ async function bootCursorEngine() {
         }
         
         if (leveledUp) {
-            const uiLevel = document.getElementById('ui-level-display');
-            if (uiLevel) uiLevel.innerText = window.playerLevel;
-
+            document.getElementById('ui-level-display').innerText = window.playerLevel;
+            document.getElementById('ui-char-level').innerText = window.playerLevel;
             window.updateHealthBars(); window.updateEnergyUI(); window.updateMpUI();
             window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50, "RACE LEVEL UP!", "#00e5ff");
-            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 70, `+${earnedStatPoints} Stat Pts  +${earnedSkillPoints} Skill Pt`, "#ffca28");
             
-            // Atualiza playerData localmente para a character sheet refletir imediatamente
-            if (window.playerData) {
-                window.playerData.stat_points = (parseInt(window.playerData.stat_points) || 0) + earnedStatPoints;
-                window.playerData.skill_points = (parseInt(window.playerData.skill_points) || 0) + earnedSkillPoints;
-                window.playerData.race_level = window.playerLevel;
-                window.playerData.race_xp = window.playerXp;
-            }
-
             if (earnedSkillPoints > 0 || earnedStatPoints > 0) {
                 fetch('backend/api_save_event.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ event: 'add_level_points', skill_points: earnedSkillPoints, stat_points: earnedStatPoints })
-                }).then(r => r.json()).then(data => {
-                    // Sincroniza com o backend após salvar
-                    if (data.success && window.playerData) {
-                        window.playerData.stat_points = (parseInt(window.playerData.stat_points) || 0);
-                        window.playerData.skill_points = (parseInt(window.playerData.skill_points) || 0);
-                    }
                 }).catch(err => {});
             }
-
-            // Re-renderiza a character sheet se estiver aberta
-            if (typeof window.renderCharacterSheet === 'function') {
-                window.renderCharacterSheet();
-            }
-            window.refreshSkillUI();
         }
         if (typeof window.updateXpUI === 'function') window.updateXpUI();
         return leveledUp;

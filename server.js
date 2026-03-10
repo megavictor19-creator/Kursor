@@ -196,6 +196,7 @@ wss.on('connection', (ws) => {
 
             if (data.type === 'init') {
                 players[id] = { id: id, username: data.username, sprite: data.sprite, x: data.x, y: data.y };
+                if (data.combatTagId) ws._combatTagId = data.combatTagId;
                 ws.send(JSON.stringify({ type: 'current_players', players: players }));
                 broadcast({ type: 'new_player', player: players[id] }, id);
                 broadcast({ type: 'chat_msg', channel: 'system', sender: 'System', text: `${data.username} joined the realm.` });
@@ -239,14 +240,32 @@ wss.on('connection', (ws) => {
 
                 if (m.hp <= 0) {
                     let tags = m.taggedBy;
-                    let drops = generateLootForMob(m);
                     let expMultiplier = parseFloat(SERVER_DATA.settings.exp_multiplier) || 1.0;
                     let finalExp = Math.floor(m.expYield * expMultiplier);
                     let dieX = m.x; let dieY = m.y;
                     
-                    delete monsters[data.id]; 
-                    broadcast({ type: 'mob_died', id: data.id, x: dieX, y: dieY, tags: tags, loot: drops, expYield: finalExp });
-                    setTimeout(spawnMonster, 4000); 
+                    delete monsters[data.id];
+
+                    // Envia mob_died para TODOS (animação de morte, remoção do DOM)
+                    // mas loot só para quem deu dano — cada um recebe o seu próprio
+                    broadcast({ type: 'mob_died', id: data.id, x: dieX, y: dieY, tags: tags, expYield: finalExp });
+
+                    // Loot individual: cada tagger recebe sua própria bag
+                    wss.clients.forEach((client) => {
+                        if (client.readyState !== WebSocket.OPEN) return;
+                        const cPlayer = players[client.id];
+                        if (!cPlayer) return;
+                        // Verifica se esse cliente participou do kill
+                        const tagId = client._combatTagId;
+                        if (!tagId || !tags.includes(tagId)) return;
+                        // Gera loot exclusivo para esse jogador
+                        let personalLoot = generateLootForMob(m);
+                        if (personalLoot.length > 0) {
+                            client.send(JSON.stringify({ type: 'personal_loot', x: dieX, y: dieY, loot: personalLoot }));
+                        }
+                    });
+
+                    setTimeout(spawnMonster, 4000);
                 } else {
                     m.x += data.pushX; m.y += data.pushY;
                     broadcast({ type: 'mob_hit', id: data.id, damage: finalDamage, isCrit: data.isCrit, hp: m.hp, maxHp: m.maxHp, pushX: data.pushX, pushY: data.pushY });
