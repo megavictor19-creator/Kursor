@@ -48,6 +48,32 @@ window.renderCharacterSheet = function() {
     let sp = (parseInt(p.max_energy) || 100) + (eq.max_energy || 0) + chaSp;
     let tDodge = dodge + dexDodge;
 
+    let equippedHtml = '';
+    {
+        const eqCats = ['pet','wing','aura','trail','halo'];
+        const eqIcons = { pet:'🐲', wing:'🪽', aura:'✨', trail:'☄️', halo:'💫' };
+        const equippedItems = (p.inventory || []).filter(i => parseInt(i.is_equipped) === 1);
+        equippedHtml = `
+            <div style="margin-bottom:10px; border-bottom:1px dashed rgba(255,255,255,0.07); padding-bottom:10px;">
+                <div style="font-size:9px; color:#8fa0b5; text-transform:uppercase; letter-spacing:1px; margin-bottom:7px;">Equipment</div>
+                <div style="display:flex; gap:7px; justify-content:center;">
+                    ${eqCats.map(cat => {
+                        const found = equippedItems.find(i => (i.category||'').toLowerCase() === cat || (i.category||'').toLowerCase() === cat+'s');
+                        const iconPath = found ? (found.icon_path || '') : '';
+                        const label   = found ? found.item_name : eqIcons[cat];
+                        const rarity  = found ? found.rarity.toLowerCase() : '';
+                        const inner   = iconPath 
+                            ? `<img src="${iconPath}" style="width:80%;height:80%;object-fit:contain;" onerror="this.src='img/items/default.png'">`
+                            : `<span style="opacity:0.3;font-size:14px;">${eqIcons[cat]}</span>`;
+                        return `<div title="${label}" style="width:36px;height:36px;border-radius:6px;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;position:relative;${rarity?'border:1px solid rgba(255,255,255,0.15)':'border:1px dashed rgba(255,255,255,0.08)'};">
+                            ${inner}
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     let skillsHtml = '';
     window.availableSkillPoints = parseInt(p.skill_points) || 0;
     let skillLevels = {};
@@ -142,11 +168,12 @@ window.renderCharacterSheet = function() {
                 </div>
             </div>
 
-            <div style="flex: 1; display: flex; flex-direction: column; min-width: 260px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; overflow: hidden;">
+            <div style="flex: 1; display: flex; flex-direction: column; min-width: 260px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; overflow: hidden;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px;">
                     <h3 style="color: #8fa0b5; font-size: 10px; margin: 0; text-transform:uppercase; letter-spacing:1px;">Skills & Magic</h3>
                     <span style="font-size:9px; color:#aaa;">SP: <span style="color:#00e676; font-weight:bold; font-size:11px;">${window.availableSkillPoints}</span></span>
                 </div>
+                ${equippedHtml}
                 <div style="overflow-y: auto; flex-grow: 1; padding-right: 5px; display: flex; flex-direction: column; gap: 6px;">
                     ${skillsHtml}
                 </div>
@@ -159,19 +186,31 @@ window.renderCharacterSheet = function() {
 };
 
 function renderStatRow(name, code, val, canUpgrade, color, disabled = false, isRainbow = false) {
-    let btn = canUpgrade ? `<button onclick="window.allocateStat('${code.toLowerCase()}')" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); color:#fff; width:20px; height:20px; border-radius:4px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0; transition:0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">+</button>` : `<div style="width:20px;"></div>`;
+    // AUR — atributo especial bloqueado com visual diferenciado
+    if (disabled && isRainbow) {
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:6px;background:rgba(255,255,255,0.025);border-radius:6px;padding:5px 6px;position:relative;overflow:hidden;" title="Aura — Atributo especial. Disponível em breve.">
+            <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,68,68,0.04),rgba(224,64,251,0.05),rgba(0,229,255,0.04));border-radius:6px;pointer-events:none;"></div>
+            <span class="rainbow-text" style="width:40px;font-weight:bold;">AUR</span>
+            <span style="flex:1;color:#555;font-size:9px;letter-spacing:1.5px;text-align:center;font-style:italic;">EM BREVE</span>
+            <span style="font-size:13px;opacity:0.45;" title="Bloqueado">🔒</span>
+        </div>`;
+    }
+
+    let btn = canUpgrade
+        ? `<button onclick="window.allocateStat('${code.toLowerCase()}')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.2);color:#fff;width:20px;height:20px;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0;transition:0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">+</button>`
+        : `<div style="width:20px;"></div>`;
     if (disabled) btn = `<div style="width:20px;"></div>`;
-    
-    let valStr = disabled ? '??' : val;
-    let opacity = disabled ? '0.5' : '1';
-    
-    let codeClass = isRainbow ? 'rainbow-text' : '';
-    let valClass = isRainbow ? 'rainbow-text' : '';
-    let codeStyle = isRainbow ? `width:40px;` : `color:${color}; width:40px; font-weight:bold; opacity:0.8;`;
-    let valStyle = isRainbow ? `font-family:'Courier New', monospace; font-size:13px;` : `color:${color}; font-weight:bold; font-family:'Courier New', monospace; font-size:13px;`;
+
+    const valStr    = disabled ? '??' : val;
+    const opacity   = disabled ? '0.5' : '1';
+    const codeClass = isRainbow ? 'rainbow-text' : '';
+    const valClass  = isRainbow ? 'rainbow-text' : '';
+    const codeStyle = isRainbow ? `width:40px;` : `color:${color};width:40px;font-weight:bold;opacity:0.8;`;
+    const valStyle  = isRainbow ? `font-family:'Courier New',monospace;font-size:13px;` : `color:${color};font-weight:bold;font-family:'Courier New',monospace;font-size:13px;`;
 
     return `
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:4px; opacity:${opacity};">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px;opacity:${opacity};">
             <span class="${codeClass}" style="${codeStyle}" title="${name}">${code}</span>
             <span class="${valClass}" style="${valStyle}">${valStr}</span>
             ${btn}
@@ -186,7 +225,6 @@ window.allocateStat = async function(statCode) {
         window.playerData.stat_points = parseInt(window.playerData.stat_points) - 1;
         window.playerData['stat_' + statCode] = (parseInt(window.playerData['stat_' + statCode]) || 0) + 1;
         window.renderCharacterSheet();
-        if (typeof window.recalculatePlayerStats === 'function') window.recalculatePlayerStats();
         
         let res = await fetch('backend/api_save_event.php', {
             method: 'POST',
@@ -196,18 +234,26 @@ window.allocateStat = async function(statCode) {
         let data = await res.json();
         
         if (data.success) {
-            // Sincroniza com os dados reais do backend
-            if (data.new_stat !== undefined) window.playerData['stat_' + statCode] = data.new_stat;
-            if (data.stat_points !== undefined) window.playerData.stat_points = data.stat_points;
+            // Sincroniza com os dados reais do backend para evitar dessincronização
+            if (data.new_stat !== undefined) {
+                window.playerData['stat_' + statCode] = data.new_stat;
+                window.playerData.stat_points = data.stat_points;
+            }
             window.renderCharacterSheet();
             if (typeof window.recalculatePlayerStats === 'function') window.recalculatePlayerStats();
+            
+            // Força a atualização dos dados do jogador na engine se a função existir
+            if (typeof window.fetchPlayerData === 'function') window.fetchPlayerData();
         } else {
             // Reverte em caso de erro
+            console.error("Erro ao alocar ponto:", data.error);
             window.playerData.stat_points = parseInt(window.playerData.stat_points) + 1;
-            window.playerData['stat_' + statCode] = Math.max(0, (parseInt(window.playerData['stat_' + statCode]) || 0) - 1);
+            window.playerData['stat_' + statCode] = (parseInt(window.playerData['stat_' + statCode]) || 0) - 1;
             window.renderCharacterSheet();
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error("Falha de comunicação com o servidor:", e);
+    }
 };
 
 window.upgradeSkill = async function(skillName) {
@@ -221,34 +267,28 @@ window.upgradeSkill = async function(skillName) {
         let data = await res.json();
         
         if (data.success) {
-            if (data.skill_points !== undefined) window.playerData.skill_points = data.skill_points;
-            else window.playerData.skill_points = Math.max(0, (parseInt(window.playerData.skill_points) || 0) - 1);
-            
-            if (data.skill_levels_json) window.playerData.skill_levels_json = data.skill_levels_json;
+            window.playerData.skill_points = data.skill_points !== undefined ? data.skill_points : parseInt(window.playerData.skill_points) - 1;
+            if (data.skill_levels_json) {
+                window.playerData.skill_levels_json = data.skill_levels_json;
+            }
             
             window.renderCharacterSheet();
             if (typeof window.recalculatePlayerStats === 'function') window.recalculatePlayerStats();
-            if (typeof window.refreshSkillUI === 'function') window.refreshSkillUI();
+            if (typeof window.fetchPlayerData === 'function') window.fetchPlayerData();
+        } else {
+            console.error("Erro ao melhorar habilidade:", data.error);
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error("Falha de comunicação com o servidor:", e);
+    }
 };
 
-// Render on-demand: sem setInterval custoso.
-// A character sheet renderiza ao abrir a janela ou quando dados mudam.
-if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", () => {
-        let attempts = 0;
-        let waitInterval = setInterval(() => {
-            attempts++;
-            if (window.playerData) { clearInterval(waitInterval); window.renderCharacterSheet(); }
-            if (attempts > 50) clearInterval(waitInterval);
-        }, 100);
-    });
-} else {
+// Render inicial on-demand — sem setInterval custoso
+(function() {
     let attempts = 0;
-    let waitInterval = setInterval(() => {
+    const wait = setInterval(() => {
         attempts++;
-        if (window.playerData) { clearInterval(waitInterval); window.renderCharacterSheet(); }
-        if (attempts > 50) clearInterval(waitInterval);
+        if (window.playerData) { clearInterval(wait); window.renderCharacterSheet(); }
+        if (attempts > 60) clearInterval(wait);
     }, 100);
-}
+})();

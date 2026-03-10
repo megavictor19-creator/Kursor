@@ -69,46 +69,74 @@ if (!isset($_SESSION['player_id'])) {
         .btn-equip-race:hover { background: #00e5ff; color: #000; }
 
         /* ===== HUD - SEM BACKDROP-FILTER ===== */
-        .hud-master-wrapper { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 10px; z-index: 2000; }
-        .hud-side-drawer { display: flex; background: rgba(0,0,0,0.88); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 0; gap: 5px; transition: width 0.2s, opacity 0.2s, padding 0.2s, margin 0.2s; overflow: hidden; width: 0px; opacity: 0; margin-right: -10px; white-space: nowrap; height: 50px; align-items: center; justify-content: center; }
-        .hud-side-drawer.open { width: 135px; opacity: 1; padding: 0 5px; margin-right: 0; border-color: rgba(255,255,255,0.12); }
+        /* ===== MINI-HUD TOP-LEFT ===== */
+        .mini-hud {
+            position: fixed; top: 14px; left: 14px; z-index: 2500;
+            display: flex; align-items: center; gap: 12px;
+            pointer-events: none;
+        }
+        .mini-hud-avatar {
+            position: relative; width: 58px; height: 58px; flex-shrink: 0;
+        }
+        .mini-hud-avatar svg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transform: rotate(-90deg);
+        }
+        .mini-hud-photo {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            width: 38px; height: 38px; border-radius: 50%; object-fit: contain;
+            background: rgba(0,0,0,0.6); border: 2px solid rgba(0,0,0,0.8);
+            image-rendering: pixelated;
+        }
+        .mini-hud-bars {
+            display: flex; flex-direction: column; gap: 5px; min-width: 120px;
+        }
+        .mini-bar-wrap {
+            position: relative; height: 12px; border-radius: 3px;
+            background: rgba(0,0,0,0.75); overflow: hidden;
+        }
+        .mini-bar-fill {
+            position: absolute; left: 0; top: 0; height: 100%;
+            border-radius: 3px; transition: width 0.2s;
+        }
+        .mini-bar-text {
+            position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+            font-size: 9px; font-weight: bold; color: rgba(255,255,255,0.85);
+            font-family: 'Courier New', monospace; text-shadow: 1px 1px 0 #000; z-index: 2;
+        }
+        .mini-bar-hp  { background: linear-gradient(90deg, rgba(0,160,60,0.8), rgba(0,230,100,0.9)); }
+        .mini-bar-mp  { background: linear-gradient(90deg, rgba(0,100,220,0.8), rgba(0,200,255,0.9)); }
+
+        /* ===== HUD PRINCIPAL - só skillbar + XP ===== */
+        .hud-master-wrapper { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 8px; z-index: 2000; }
+        .hud-side-drawer { display: flex; background: rgba(0,0,0,0.82); border-radius: 10px; padding: 0; gap: 5px; transition: width 0.2s, opacity 0.2s, padding 0.2s, margin 0.2s; overflow: hidden; width: 0px; opacity: 0; margin-right: -10px; white-space: nowrap; height: 50px; align-items: center; justify-content: center; }
+        .hud-side-drawer.open { width: 135px; opacity: 1; padding: 0 5px; margin-right: 0; }
         
-        .os-btn { background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: background 0.15s; display: flex; justify-content: center; align-items: center; width: 38px; height: 38px; font-size: 20px; line-height: 1; }
-        .os-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
+        .os-btn { background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s; display: flex; justify-content: center; align-items: center; width: 38px; height: 38px; font-size: 20px; line-height: 1; pointer-events: all; }
+        .os-btn:hover { background: rgba(255,255,255,0.1); }
 
-        .drawer-toggle-btn { background: rgba(0,0,0,0.88); border: 1px solid rgba(255,255,255,0.06); color: #aaa; border-radius: 6px; width: 25px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.15s; font-size: 10px; }
-        .drawer-toggle-btn:hover { color: #fff; background: rgba(255,255,255,0.12); }
+        .drawer-toggle-btn { background: rgba(0,0,0,0.82); border: none; color: #888; border-radius: 6px; width: 22px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.15s; font-size: 10px; pointer-events: all; }
+        .drawer-toggle-btn:hover { color: #fff; }
 
-        .hud-core { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .hud-core { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
-        .skills-row { display: flex; gap: 12px; }
-        .skill-mini-slot { width: 46px; height: 46px; background: rgba(0,0,0,0.88); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; position: relative; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.7); transition: border-color 0.15s; display: flex; justify-content: center; align-items: center; font-size: 18px; }
-        .skill-mini-slot:hover { border-color: rgba(0,229,255,0.5); }
-        .skill-mini-slot .key { position: absolute; top: -8px; left: -8px; background: #111; color: #fff; border: 1px solid #444; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; z-index: 15; text-shadow: 1px 1px 0 #000; }
+        .skills-row { display: flex; gap: 10px; }
+        .skill-mini-slot { width: 48px; height: 48px; background: rgba(0,0,0,0.82); border-radius: 8px; position: relative; cursor: pointer; transition: background 0.15s; display: flex; justify-content: center; align-items: center; font-size: 20px; pointer-events: all; }
+        .skill-mini-slot:hover { background: rgba(255,255,255,0.07); }
+        .skill-mini-slot .key { position: absolute; top: -7px; left: -7px; background: rgba(0,0,0,0.9); color: #ccc; border: 1px solid rgba(255,255,255,0.15); font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; z-index: 15; }
 
-        /* ===== STATS PANEL - SEM BACKDROP-FILTER ===== */
-        .stats-panel { width: 480px; background: rgba(0,0,0,0.88); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 15px; box-shadow: 0 8px 24px rgba(0,0,0,0.9); }
+        /* ===== XP BAR sob as skills ===== */
+        .hud-xp-panel { background: rgba(0,0,0,0.82); border-radius: 8px; padding: 6px 12px 8px; width: 100%; box-sizing: border-box; }
+        .hud-xp-info { text-align: center; font-family: 'Courier New', monospace; font-size: 11px; color: #fff; margin-bottom: 5px; }
+        .xp-segments { display: flex; gap: 2px; height: 4px; width: 100%; }
+        .xp-segment { flex: 1; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+        .xp-fill { height: 100%; width: 0%; background: linear-gradient(90deg, rgba(156,39,176,0.8), rgba(224,64,251,1)); transition: width 0.2s linear; }
 
-        .global-bars { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-        .global-bar-container { position: relative; width: 100%; background: rgba(0,0,0,0.8); border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; display: flex; align-items: center; height: 14px; }
-        
-        .bar-label { position: absolute; left: 8px; font-weight: 600; font-size: 9px; color: rgba(255,255,255,0.8); z-index: 2; letter-spacing: 1px; text-shadow: 1px 1px 0 #000; }
-        .bar-value { position: absolute; right: 8px; font-weight: bold; font-size: 10px; color: rgba(255,255,255,0.9); z-index: 2; text-shadow: 1px 1px 0 #000; font-family: 'Courier New', monospace; }
-        
-        .global-hp-fill { height: 100%; background: linear-gradient(90deg, rgba(0,168,67,0.6), rgba(42,255,113,0.8)); transition: width 0.2s; position: absolute; left: 0; top: 0; }
-        .global-mp-fill { height: 100%; background: linear-gradient(90deg, rgba(0,119,255,0.6), rgba(0,212,255,0.8)); transition: width 0.2s; position: absolute; left: 0; top: 0; }
-
-        .hud-xp-container { margin-top: 8px; width: 100%; display: flex; flex-direction: column; gap: 4px; }
-        .xp-info { text-align: center; font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 1px; color: #fff; text-shadow: 1px 1px 0 #000; }
-        .xp-segments { display: flex; gap: 2px; height: 5px; width: 100%; }
-        .xp-segment { flex: 1; background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
-        .xp-fill { height: 100%; width: 0%; background: linear-gradient(90deg, rgba(156,39,176,0.7), rgba(224,64,251,0.8)); transition: width 0.2s linear; }
-
-        .energy-badge { background: rgba(0,0,0,0.88); border: 1px solid rgba(255,202,40,0.3); border-radius: 10px; padding: 0 10px; height: 50px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffca28; font-weight: bold; font-size: 10px; text-shadow: 0 1px 2px #000; letter-spacing: 1px; }
+        .energy-badge { background: rgba(0,0,0,0.82); border-radius: 10px; padding: 0 10px; height: 50px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffca28; font-weight: bold; font-size: 10px; text-shadow: 0 1px 2px #000; letter-spacing: 1px; pointer-events: all; }
         .energy-badge span { font-size: 15px; color: #fff; }
 
-        .corner-btn { position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.88); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 45px; height: 45px; font-size: 22px; display: flex; justify-content: center; align-items: center; padding-bottom: 2px; cursor: pointer; z-index: 2000; transition: 0.15s; }
-        .corner-btn:hover { transform: scale(1.1) rotate(45deg); border-color: rgba(0,229,255,0.5); }
+        .corner-btn { position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.82); border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 2000; transition: 0.15s; }
+        .corner-btn:hover { transform: scale(1.1) rotate(45deg); }
 
         .game-area { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; cursor: none; z-index: 1; background-color: #0b140d; }
         .world-map { position: absolute; top: 0; left: 0; width: 5000px; height: 5000px; background-color: #161a22; background-image: linear-gradient(#1e2430 2px, transparent 2px), linear-gradient(90deg, #1e2430 2px, transparent 2px); background-size: 80px 80px; transform-origin: 0 0; will-change: transform; backface-visibility: hidden; }
@@ -238,42 +266,69 @@ if (!isset($_SESSION['player_id'])) {
         </div>
     </div>
 
+    <!-- ===== MINI-HUD TOP-LEFT ===== -->
+    <div class="mini-hud" id="mini-hud">
+        <div class="mini-hud-avatar">
+            <!-- Anel HP (verde) exterior -->
+            <svg viewBox="0 0 58 58">
+                <circle cx="29" cy="29" r="26" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="4"/>
+                <circle id="mini-ring-hp" cx="29" cy="29" r="26" fill="none"
+                    stroke="rgba(0,220,90,0.85)" stroke-width="4"
+                    stroke-dasharray="163.4" stroke-dashoffset="0"
+                    stroke-linecap="round" style="transition:stroke-dashoffset 0.25s"/>
+            </svg>
+            <!-- Anel MP (azul) interior -->
+            <svg viewBox="0 0 58 58" style="position:absolute;top:0;left:0;">
+                <circle cx="29" cy="29" r="19" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="3"/>
+                <circle id="mini-ring-mp" cx="29" cy="29" r="19" fill="none"
+                    stroke="rgba(30,160,255,0.85)" stroke-width="3"
+                    stroke-dasharray="119.4" stroke-dashoffset="0"
+                    stroke-linecap="round" style="transition:stroke-dashoffset 0.25s"/>
+            </svg>
+            <img id="mini-hud-photo" class="mini-hud-photo" src="img/races/humano.png" alt="char">
+        </div>
+        <div class="mini-hud-bars">
+            <div class="mini-bar-wrap" style="width:130px;">
+                <div class="mini-bar-fill mini-bar-hp" id="mini-hp-bar" style="width:100%;"></div>
+                <span class="mini-bar-text" id="mini-hp-text">HP</span>
+            </div>
+            <div class="mini-bar-wrap" style="width:130px;">
+                <div class="mini-bar-fill mini-bar-mp" id="mini-mp-bar" style="width:100%;"></div>
+                <span class="mini-bar-text" id="mini-mp-text">MP</span>
+            </div>
+            <!-- Barras fantasmas para compatibilidade com o engine (referenciadas por id) -->
+            <div style="display:none;">
+                <div id="bottom-hp-fill"></div>
+                <div id="bottom-mp-fill"></div>
+                <span id="ui-hp-text"></span>
+                <span id="ui-mp-text"></span>
+            </div>
+        </div>
+    </div>
+
     <div class="hud-master-wrapper">
         <div class="hud-side-drawer" id="hud-drawer">
-            <button class="os-btn" onclick="toggleWindow('window-character')" title="Character Info">👤</button>
-            <button class="os-btn" onclick="toggleWindow('window-inventory')" title="Inventory & Equipment">🎒</button>
-            <button class="os-btn" onclick="toggleWindow('window-maps')" title="Maps">🗺️</button>
+            <button class="os-btn" onclick="toggleWindow('window-character')" title="[C] Character">👤</button>
+            <button class="os-btn" onclick="toggleWindow('window-inventory')" title="[I] Inventory">🎒</button>
+            <button class="os-btn" onclick="toggleWindow('window-maps')" title="[M] Maps">🗺️</button>
         </div>
         <div class="drawer-toggle-btn" id="drawer-toggle" onclick="toggleDrawer()">◀</div>
 
         <div class="hud-core">
             <div class="skills-row">
-                <div class="skill-mini-slot" id="skill-1" onclick="window.doAutoAttack && window.doAutoAttack()"><span class="key">1/MB1</span>⚔️</div>
+                <div class="skill-mini-slot" id="skill-1" onclick="window.doAutoAttack && window.doAutoAttack()"><span class="key">1</span>⚔️</div>
                 <div class="skill-mini-slot" id="skill-2"><span class="key">2</span></div>
                 <div class="skill-mini-slot" id="skill-3"><span class="key">3</span></div>
                 <div class="skill-mini-slot" id="skill-4"><span class="key">4</span></div>
                 <div class="skill-mini-slot" id="skill-5"><span class="key">5</span></div>
             </div>
-            
-            <div class="stats-panel">
-                <div class="global-bars">
-                    <div class="global-bar-container hp-container">
-                        <span class="bar-label">HP</span><span class="bar-value" id="ui-hp-text">100 / 100</span>
-                        <div class="global-hp-fill" id="bottom-hp-fill" style="width: 100%;"></div>
-                    </div>
-                    <div class="global-bar-container mp-container">
-                        <span class="bar-label">MP</span><span class="bar-value" id="ui-mp-text">100 / 100</span>
-                        <div class="global-mp-fill" id="bottom-mp-fill" style="width: 100%;"></div>
-                    </div>
+            <div class="hud-xp-panel">
+                <div class="hud-xp-info">
+                    <span style="color:#e040fb;font-weight:bold;">LVL <span id="ui-level-display">1</span></span>
+                    <span style="color:#888;margin-left:10px;font-size:10px;">XP <span id="ui-xp-percent">0.00%</span></span>
                 </div>
-                <div class="hud-xp-container">
-                    <div class="xp-info">
-                        <span style="color: #e040fb; font-weight: bold;">LVL <span id="ui-level-display">1</span></span>
-                        <span style="color: #aaa; margin-left: 10px;">XP: <span id="ui-xp-percent">0.000%</span></span>
-                    </div>
-                    <div class="xp-segments">
-                        <?php for($i=0; $i<10; $i++) echo '<div class="xp-segment"><div class="xp-fill" id="xp-seg-'.$i.'"></div></div>'; ?>
-                    </div>
+                <div class="xp-segments">
+                    <?php for($i=0;$i<10;$i++) echo '<div class="xp-segment"><div class="xp-fill" id="xp-seg-'.$i.'"></div></div>'; ?>
                 </div>
             </div>
         </div>
@@ -372,26 +427,115 @@ if (!isset($_SESSION['player_id'])) {
             try {
                 const response = await fetch('backend/api_scripts.php');
                 if (!response.ok) throw new Error();
-                
                 const encryptedCode = await response.text();
-                
                 const binStr = atob(encryptedCode);
                 const bytes = new Uint8Array(binStr.length);
-                for (let i = 0; i < binStr.length; i++) {
-                    bytes[i] = binStr.charCodeAt(i);
-                }
+                for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
                 const decodedCode = new TextDecoder('utf-8').decode(bytes);
-                
                 const engine = document.createElement('script');
                 engine.type = 'text/javascript';
                 engine.textContent = decodedCode;
                 document.body.appendChild(engine);
-                
                 engine.remove();
             } catch (error) {
                 alert("Failed to load game resources. Ensure your session is valid.");
             }
         })();
+    </script>
+
+    <script>
+    // ============================================================
+    // ATALHOS DE TECLADO GLOBAIS
+    // ============================================================
+    window.addEventListener('keydown', function(e) {
+        // Não disparar se estiver digitando no chat
+        if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+        const k = e.key.toLowerCase();
+        if (k === 'c') toggleWindow('window-character');
+        if (k === 'i') toggleWindow('window-inventory');
+        if (k === 'm') toggleWindow('window-maps');
+        if (k === 'escape') {
+            // Fecha a janela mais recente aberta
+            document.querySelectorAll('.ui-window:not(.hidden)').forEach(w => {
+                if (parseInt(w.style.zIndex) === highestZ) toggleWindow(w.id);
+            });
+        }
+    });
+
+    // ============================================================
+    // MINI-HUD: sincroniza anéis e barras com o engine
+    // ============================================================
+    (function() {
+        const circumHP = 2 * Math.PI * 26; // r=26 → ≈163.4
+        const circumMP = 2 * Math.PI * 19; // r=19 → ≈119.4
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+
+        window.updateMiniHud = function() {
+            const hp    = window.playerCurrentHp  || 0;
+            const maxHp = window.playerMaxHp      || 1;
+            const mp    = window.playerMana        || 0;
+            const maxMp = window.playerMaxMana     || 1;
+
+            const hpPct = Math.max(0, Math.min(1, hp / maxHp));
+            const mpPct = Math.max(0, Math.min(1, mp / maxMp));
+
+            // Anéis SVG
+            const ringHp = document.getElementById('mini-ring-hp');
+            const ringMp = document.getElementById('mini-ring-mp');
+            if (ringHp) ringHp.style.strokeDashoffset = circumHP * (1 - hpPct);
+            if (ringMp) ringMp.style.strokeDashoffset = circumMP * (1 - mpPct);
+
+            // Cor HP: verde → amarelo → vermelho
+            if (ringHp) {
+                if (hpPct > 0.5) ringHp.style.stroke = 'rgba(0,220,90,0.85)';
+                else if (hpPct > 0.25) ringHp.style.stroke = 'rgba(255,190,0,0.9)';
+                else ringHp.style.stroke = 'rgba(255,50,50,0.9)';
+            }
+
+            // Barras lineares
+            const hpBar  = document.getElementById('mini-hp-bar');
+            const mpBar  = document.getElementById('mini-mp-bar');
+            const hpTxt  = document.getElementById('mini-hp-text');
+            const mpTxt  = document.getElementById('mini-mp-text');
+            if (hpBar) hpBar.style.width = (hpPct * 100) + '%';
+            if (mpBar) mpBar.style.width = (mpPct * 100) + '%';
+            if (hpTxt) hpTxt.innerText = hp + ' / ' + maxHp;
+            if (mpTxt) mpTxt.innerText = mp + ' / ' + maxMp;
+        };
+
+        // Atualiza foto do personagem quando sprite mudar
+        window.updateMiniHudPhoto = function() {
+            const photo = document.getElementById('mini-hud-photo');
+            if (photo && window.playerData && window.playerData.sprite_path) {
+                photo.src = window.playerData.sprite_path;
+            }
+        };
+
+        // Monkey-patch updateHealthBars e updateMpUI para chamar mini-hud também
+        const _origUpdateHealthBars = window.updateHealthBars;
+        Object.defineProperty(window, 'updateHealthBars', {
+            set: function(fn) {
+                window._updateHealthBars = fn;
+            },
+            get: function() {
+                return function() {
+                    if (window._updateHealthBars) window._updateHealthBars();
+                    window.updateMiniHud();
+                };
+            }
+        });
+        const _origUpdateMp = window.updateMpUI;
+        Object.defineProperty(window, 'updateMpUI', {
+            set: function(fn) { window._updateMpUI = fn; },
+            get: function() {
+                return function() {
+                    if (window._updateMpUI) window._updateMpUI();
+                    window.updateMiniHud();
+                };
+            }
+        });
+    })();
     </script>
 </body>
 </html>

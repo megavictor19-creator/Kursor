@@ -165,7 +165,7 @@ function bootCombatEngine() {
                     if (typeof window.updateXpUI === 'function') window.updateXpUI();
 
                     sendRealTimeEvent({ event: 'update_stats', xp: window.playerXp, level: window.playerLevel, kills: window.playerKills, max_hp: window.playerMaxHp, current_hp: window.playerCurrentHp });
-                    if (data.loot && data.loot.length > 0 && typeof spawnLootBag === 'function') spawnLootBag(data.x, data.y, data.loot);
+                    if (data.loot && data.loot.length > 0) window.pushLootQueue(data.loot);
                 }
             }
         }
@@ -465,3 +465,166 @@ if (document.readyState === 'loading') {
 } else {
     bootCombatEngine();
 }
+// ============================================================
+// SISTEMA DE LOOT AQW-STYLE
+// ============================================================
+(function() {
+    let lootQueue = [];
+    let lootPopupActive = false;
+
+    // Cria o container do popup se não existir
+    function ensureLootPopupDOM() {
+        if (document.getElementById('ks-loot-popup')) return;
+        const popup = document.createElement('div');
+        popup.id = 'ks-loot-popup';
+        popup.style.cssText = `
+            position: fixed;
+            bottom: 160px;
+            right: 24px;
+            width: 260px;
+            background: rgba(0,0,0,0.93);
+            border-radius: 10px;
+            padding: 14px 16px 12px;
+            z-index: 9000;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            font-family: 'Segoe UI', sans-serif;
+        `;
+        document.body.appendChild(popup);
+
+        // CSS de animação
+        if (!document.getElementById('ks-loot-css')) {
+            const s = document.createElement('style');
+            s.id = 'ks-loot-css';
+            s.textContent = `
+                @keyframes ks-loot-in {
+                    from { opacity: 0; transform: translateY(12px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+                #ks-loot-popup { animation: ks-loot-in 0.2s ease-out; }
+                .ks-loot-btn {
+                    flex: 1; padding: 7px 0; border: none; border-radius: 6px;
+                    font-size: 12px; font-weight: bold; cursor: pointer;
+                    letter-spacing: 1px; transition: filter 0.15s;
+                }
+                .ks-loot-btn:hover { filter: brightness(1.2); }
+                .ks-loot-btn.yes { background: rgba(0,200,100,0.25); color: #00e676; }
+                .ks-loot-btn.no  { background: rgba(255,60,60,0.15);  color: #ff5555; }
+                .rarity-Common   { color: #ccc; }
+                .rarity-Uncommon { color: #4caf50; }
+                .rarity-Rare     { color: #2196f3; }
+                .rarity-Epic     { color: #9c27b0; }
+                .rarity-Legendary{ color: #ffca28; text-shadow: 0 0 8px rgba(255,200,0,0.6); }
+            `;
+            document.head.appendChild(s);
+        }
+    }
+
+    function showNextLoot() {
+        if (lootQueue.length === 0) {
+            lootPopupActive = false;
+            const popup = document.getElementById('ks-loot-popup');
+            if (popup) popup.style.display = 'none';
+            return;
+        }
+        lootPopupActive = true;
+        const item = lootQueue.shift();
+        ensureLootPopupDOM();
+        const popup = document.getElementById('ks-loot-popup');
+
+        const rarityClass = item.rarity ? `rarity-${item.rarity}` : 'rarity-Common';
+        const isGold = item.type === 'gold';
+        const iconSrc = item.icon_path || 'img/items/gold_coins.png';
+        const amount  = Math.floor(item.amount || 1);
+        const nameStr = isGold ? `<span style="color:#ffca28; font-weight:bold;">${amount} Gold</span>` 
+                               : `<span class="${rarityClass}" style="font-weight:bold;">${item.name}</span>`;
+        const subStr  = isGold ? `<span style="color:#888; font-size:10px;">Drop de ouro</span>`
+                               : `<span style="color:#888; font-size:10px;">${item.rarity || 'Common'} · ${item.category || 'Item'}</span>`;
+
+        // Verifica espaço se for item
+        const hasSpace = isGold || ((window._bagUsed || 0) < 20);
+        const noSpaceWarning = (!isGold && !hasSpace) ? `<div style="text-align:center; color:#ff5555; font-size:10px; margin-top:-4px;">⚠ Bolsa cheia!</div>` : '';
+
+        popup.innerHTML = `
+            <div style="display:flex; align-items:center; gap:12px;">
+                <img src="${iconSrc}" style="width:44px; height:44px; object-fit:contain; border-radius:6px; background:rgba(255,255,255,0.04);" onerror="this.src='img/items/default.png'">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    ${nameStr}
+                    ${subStr}
+                </div>
+            </div>
+            ${noSpaceWarning}
+            <div style="display:flex; gap:8px; margin-top:2px;">
+                <button class="ks-loot-btn yes" id="ks-loot-yes">${(!isGold && !hasSpace) ? 'SEM ESPAÇO' : '✔ ACEITAR'}</button>
+                <button class="ks-loot-btn no"  id="ks-loot-no">✘ IGNORAR</button>
+            </div>
+        `;
+        popup.style.display = 'flex';
+        popup.style.animation = 'none';
+        void popup.offsetWidth;
+        popup.style.animation = '';
+
+        // Auto-aceita gold
+        if (isGold) {
+            setTimeout(() => acceptLoot(item), 400);
+            return;
+        }
+
+        document.getElementById('ks-loot-yes').onclick = () => {
+            if (!isGold && !hasSpace) { showNextLoot(); return; }
+            acceptLoot(item);
+        };
+        document.getElementById('ks-loot-no').onclick = () => {
+            window.showFloatingText && window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `Ignorado: ${item.name}`, '#888');
+            showNextLoot();
+        };
+
+        // Timeout de 12s para ignorar automaticamente
+        const autoTimer = setTimeout(() => { showNextLoot(); }, 12000);
+        popup._autoTimer = autoTimer;
+    }
+
+    function acceptLoot(item) {
+        if (item._autoTimer) clearTimeout(item._autoTimer);
+        const popup = document.getElementById('ks-loot-popup');
+        if (popup) popup._autoTimer && clearTimeout(popup._autoTimer);
+
+        if (item.type === 'gold') {
+            const amt = Math.floor(item.amount || 1);
+            window.playerGold = (window.playerGold || 0) + amt;
+            const uiGold = document.getElementById('ui-bag-gold');
+            if (uiGold) uiGold.innerText = window.playerGold + ' DPI';
+            window.showFloatingText && window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${amt} Gold`, '#ffca28');
+            fetch('backend/api_inventory.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'add_gold', amount: amt })
+            }).catch(() => {});
+        } else {
+            window.showFloatingText && window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${item.name}`, item.color || '#fff');
+            fetch('backend/api_inventory.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'add_item', item_name: item.name, rarity: item.rarity || 'Common', category: item.category || 'Core' })
+            }).then(r => r.json()).then(d => {
+                if (d.success) {
+                    window._bagUsed = (window._bagUsed || 0) + 1;
+                    if (typeof window.loadInventoryData === 'function') window.loadInventoryData();
+                }
+            }).catch(() => {});
+        }
+        showNextLoot();
+    }
+
+    window.pushLootQueue = function(lootArr) {
+        if (!Array.isArray(lootArr)) return;
+        lootArr.forEach(l => lootQueue.push(l));
+        if (!lootPopupActive) showNextLoot();
+    };
+
+    // Compatibilidade com chamadas antigas
+    window.spawnLootBag = function(x, y, lootArr) {
+        window.pushLootQueue(lootArr);
+    };
+})();
