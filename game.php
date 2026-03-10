@@ -24,7 +24,28 @@ if (!isset($_SESSION['player_id'])) {
         body { background-color: #0b140d; color: #e0e0e0; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
 
         /* ===== UI WINDOWS - SEM BACKDROP-FILTER (performance) ===== */
-        .ui-window { position: absolute; background: rgba(0,0,0,0.92); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; z-index: 1500; display: flex; flex-direction: column; overflow: visible; transition: opacity 0.15s ease-out, transform 0.15s ease-out; transform: translateY(0) scale(1); }
+        .ui-window { position: absolute; background: rgba(0,0,0,0.92); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; z-index: 1500; display: flex; flex-direction: column; overflow: hidden; max-height: calc(100vh - 40px); transition: opacity 0.15s ease-out, transform 0.15s ease-out; }
+        .window-content { overflow-y: auto; flex: 1; }
+        .window-content::-webkit-scrollbar { width: 4px; }
+        .window-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+        /* Rows de stat com botão + */
+        .stat-row { display:flex; justify-content:space-between; align-items:center; padding: 5px 6px; border-radius: 6px; margin-bottom: 3px; }
+        .stat-row:hover { background: rgba(255,255,255,0.03); }
+        .stat-plus { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); color: #fff; width: 20px; height: 20px; border-radius: 4px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+        .stat-plus:hover { background: rgba(255,255,255,0.2); }
+
+        /* Bag grid no inventário */
+        .bag-grid-layout { display: grid; grid-template-columns: repeat(4, 48px); gap: 5px; justify-content: center; overflow: hidden; }
+        .slot { width: 48px; height: 48px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; display: flex; justify-content: center; align-items: center; cursor: grab; position: relative; transition: border-color 0.15s; box-sizing: border-box; overflow: hidden; }
+        .slot.empty-slot { opacity: 0.3; cursor: default; }
+        .slot:hover:not(.empty-slot) { border-color: rgba(255,255,255,0.2); }
+        .slot.drag-over { border-color: rgba(0,229,255,0.6) !important; background: rgba(0,229,255,0.05); }
+        .slot.common    { border-color: rgba(180,180,180,0.4); }
+        .slot.uncommon  { border-color: rgba(0,180,80,0.5); }
+        .slot.rare      { border-color: rgba(0,120,255,0.5); }
+        .slot.epic      { border-color: rgba(160,0,255,0.6); }
+        .slot.legendary { border-color: rgba(255,140,0,0.6); }
         .ui-window.hidden { opacity: 0; pointer-events: none; transform: translateY(-8px) scale(0.97); }
         
         .drag-handle { cursor: grab; } .drag-handle:active { cursor: grabbing; }
@@ -46,14 +67,8 @@ if (!isset($_SESSION['player_id'])) {
         .section-title { font-weight: 400; letter-spacing: 2px; font-size: 10px; color: #00e5ff; text-align: center; margin-bottom: 12px; text-transform: uppercase; display: flex; align-items: center; gap: 10px; opacity: 0.9; }
         .section-title::before, .section-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(0,229,255,0.3), transparent); }
 
-        .equip-grid-layout { display: flex; justify-content: center; gap: 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.04); border-radius: 6px; padding: 12px; margin-bottom: 15px; }
-        .bag-grid-layout { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.04); border-radius: 6px; padding: 12px; justify-items: center; }
-
-        .slot { width: 40px; height: 40px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 18px; cursor: pointer; transition: border-color 0.15s, background 0.15s; position: relative; }
-        .slot:hover { border-color: rgba(0,229,255,0.5); background: rgba(0,229,255,0.06); }
-        .slot.empty-slot { opacity: 0.4; border-style: dashed; filter: grayscale(100%); }
-        
-        .bag-slot.drag-over { border: 2px dashed #00e5ff !important; background: rgba(0,229,255,0.1) !important; }
+        .equip-grid-layout { display: flex; justify-content: center; gap: 10px; }
+        /* bag-grid-layout e .slot definidos acima */
 
         .item-stack-count { position: absolute; top: -6px; right: -6px; background: #ff2a2a; color: #fff; font-family: 'Courier New', monospace; font-size: 9px; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #ffca28; z-index: 5; pointer-events: none; }
 
@@ -69,66 +84,149 @@ if (!isset($_SESSION['player_id'])) {
         .btn-equip-race:hover { background: #00e5ff; color: #000; }
 
         /* ===== HUD - SEM BACKDROP-FILTER ===== */
-        /* ===== MINI-HUD TOP-LEFT ===== */
-        .mini-hud {
+        /* =====================================================
+           HUD SUPERIOR ESQUERDO — avatar circular + barras
+           ===================================================== */
+        .phud {
             position: fixed; top: 14px; left: 14px; z-index: 2500;
             display: flex; align-items: center;
-            background: rgba(0,0,0,0.82);
-            border-radius: 14px;
-            padding: 10px 16px 10px 10px;
-            gap: 12px;
+            background: rgba(0,0,0,0.84);
+            border-radius: 40px 12px 12px 40px;
+            padding: 8px 18px 8px 8px;
+            gap: 0;
             pointer-events: none;
+            min-width: 260px;
         }
-        .mini-hud-photo {
-            width: 56px; height: 56px; border-radius: 10px;
-            object-fit: contain; background: rgba(255,255,255,0.03);
-            image-rendering: pixelated; flex-shrink: 0;
-        }
-        .mini-hud-bars {
-            display: flex; flex-direction: column; gap: 6px; min-width: 130px;
-        }
-        .mini-bar-wrap {
-            position: relative; height: 14px; border-radius: 4px;
-            background: rgba(255,255,255,0.05); overflow: hidden;
-        }
-        .mini-bar-fill {
-            position: absolute; left: 0; top: 0; height: 100%;
-            border-radius: 4px; transition: width 0.25s ease;
-            opacity: 0.82;
-        }
-        .mini-bar-text {
-            position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
-            font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.9);
-            font-family: 'Courier New', monospace;
-            z-index: 2; text-align: center; letter-spacing: 0.3px;
-        }
-        .mini-bar-hp { background: rgba(0,210,80,0.75); }
-        .mini-bar-mp { background: rgba(30,140,255,0.75); }
 
-        /* ===== HUD PRINCIPAL - só skillbar + XP ===== */
-        .hud-master-wrapper { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 8px; z-index: 2000; overflow: visible; }
-        .hud-side-drawer { display: flex; background: rgba(0,0,0,0.82); border-radius: 10px; padding: 0; gap: 5px; transition: width 0.2s, opacity 0.2s, padding 0.2s, margin 0.2s; overflow: hidden; width: 0px; opacity: 0; margin-right: -10px; white-space: nowrap; height: 50px; align-items: center; justify-content: center; }
-        .hud-side-drawer.open { width: 135px; opacity: 1; padding: 0 5px; margin-right: 0; }
-        
-        .os-btn { background: transparent; border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s; display: flex; justify-content: center; align-items: center; width: 38px; height: 38px; font-size: 20px; line-height: 1; pointer-events: all; }
+        /* Anel circular ao redor da foto */
+        .phud-avatar-ring {
+            position: relative; flex-shrink: 0;
+            width: 70px; height: 70px;
+        }
+        .phud-avatar-ring svg {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+        .phud-photo {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 54px; height: 54px;
+            border-radius: 50%;
+            object-fit: contain;
+            image-rendering: pixelated;
+            background: rgba(0,0,0,0.6);
+        }
+
+        /* Barras à direita do avatar */
+        .phud-bars {
+            display: flex; flex-direction: column;
+            gap: 7px; flex: 1; margin-left: 12px;
+        }
+        .phud-bar-row {
+            display: flex; align-items: center; gap: 7px;
+        }
+        .phud-bar-label {
+            font-size: 9px; font-weight: 800;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.5px; width: 18px;
+            text-align: right; flex-shrink: 0;
+            opacity: 0.7;
+        }
+        .phud-bar-track {
+            flex: 1; height: 12px; border-radius: 3px;
+            background: rgba(255,255,255,0.06);
+            position: relative; overflow: hidden;
+        }
+        .phud-bar-fill {
+            position: absolute; left: 0; top: 0; height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .phud-bar-val {
+            position: absolute; right: 5px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 9px; font-weight: 700;
+            color: rgba(255,255,255,0.75);
+            font-family: 'Courier New', monospace;
+            z-index: 2; white-space: nowrap;
+        }
+        /* Cores das barras */
+        .phud-fill-hp { background: rgba(220, 50, 50, 0.85); }
+        .phud-fill-mp { background: rgba(40, 120, 220, 0.85); }
+        .phud-fill-sp { background: rgba(240, 160, 0, 0.85); }
+
+        /* =====================================================
+           HUD INFERIOR — menu fixo + skills + XP
+           ===================================================== */
+        .hud-master-wrapper {
+            position: fixed; bottom: 16px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; align-items: flex-end;
+            gap: 6px; z-index: 2000;
+        }
+        /* Botões de menu à esquerda das skills */
+        .hud-menu-btns {
+            display: flex; flex-direction: column; gap: 5px;
+            background: rgba(0,0,0,0.82);
+            border-radius: 10px;
+            padding: 8px 6px;
+        }
+        .os-btn {
+            background: transparent; border: none; border-radius: 6px;
+            cursor: pointer; transition: background 0.15s;
+            display: flex; justify-content: center; align-items: center;
+            width: 34px; height: 34px; font-size: 18px; line-height: 1;
+            pointer-events: all;
+        }
         .os-btn:hover { background: rgba(255,255,255,0.1); }
 
-        .drawer-toggle-btn { background: rgba(0,0,0,0.82); border: none; color: #888; border-radius: 6px; width: 22px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.15s; font-size: 10px; pointer-events: all; }
-        .drawer-toggle-btn:hover { color: #fff; }
+        /* Skills + XP no centro */
+        .hud-core {
+            background: rgba(0,0,0,0.82);
+            border-radius: 12px;
+            padding: 10px 14px 6px;
+            display: flex; flex-direction: column;
+            align-items: center; gap: 6px;
+        }
+        .skills-row { display: flex; gap: 8px; }
+        .skill-mini-slot {
+            width: 46px; height: 46px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; position: relative;
+            cursor: pointer; transition: background 0.12s;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 20px; pointer-events: all;
+        }
+        .skill-mini-slot:hover { background: rgba(255,255,255,0.09); }
+        .skill-mini-slot .key {
+            position: absolute; top: -7px; left: -7px;
+            background: rgba(0,0,0,0.9); color: #ccc;
+            border: 1px solid rgba(255,255,255,0.15);
+            font-size: 9px; padding: 1px 4px;
+            border-radius: 3px; font-weight: bold; z-index: 15;
+        }
 
-        .hud-core { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-
-        .skills-row { display: flex; gap: 10px; }
-        .skill-mini-slot { width: 48px; height: 48px; background: rgba(0,0,0,0.82); border-radius: 8px; position: relative; cursor: pointer; transition: background 0.15s; display: flex; justify-content: center; align-items: center; font-size: 20px; pointer-events: all; }
-        .skill-mini-slot:hover { background: rgba(255,255,255,0.07); }
-        .skill-mini-slot .key { position: absolute; top: -7px; left: -7px; background: rgba(0,0,0,0.9); color: #ccc; border: 1px solid rgba(255,255,255,0.15); font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: bold; z-index: 15; }
-
-        /* ===== XP BAR sob as skills ===== */
-        .hud-xp-panel { background: rgba(0,0,0,0.82); border-radius: 8px; padding: 6px 12px 8px; width: 100%; box-sizing: border-box; overflow: visible; }
-        .hud-xp-info { text-align: center; font-family: 'Courier New', monospace; font-size: 11px; color: #fff; margin-bottom: 5px; }
-        .xp-segments { display: flex; gap: 2px; height: 5px; width: 100%; overflow: visible; }
-        .xp-segment { flex: 1; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; min-width: 0; }
-        .xp-fill { height: 100%; width: 0%; background: linear-gradient(90deg, rgba(156,39,176,0.8), rgba(224,64,251,1)); transition: width 0.2s linear; }
+        /* XP row — barra + nível + % dentro do hud-core */
+        .hud-xp-row {
+            width: 100%; display: flex; align-items: center; gap: 7px;
+        }
+        .hud-xp-track {
+            flex: 1; height: 5px; border-radius: 3px;
+            background: rgba(255,255,255,0.06); overflow: hidden;
+        }
+        .hud-xp-fill {
+            height: 100%; width: 0%;
+            background: rgba(170,60,220,0.78);
+            transition: width 0.3s;
+        }
+        .hud-xp-text {
+            font-size: 9px; font-weight: 800;
+            color: rgba(190,120,255,0.8);
+            font-family: 'Courier New', monospace;
+            white-space: nowrap; flex-shrink: 0;
+        }
 
         .corner-btn { position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.82); border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 2000; transition: 0.15s; }
         .corner-btn:hover { transform: scale(1.1) rotate(45deg); }
@@ -190,7 +288,7 @@ if (!isset($_SESSION['player_id'])) {
             <span>Character Sheet</span>
             <button class="close-win" onclick="toggleWindow('window-character')">&times;</button>
         </div>
-        <div class="window-content" style="padding: 12px; overflow: visible;"></div>
+        <div class="window-content" style="padding: 12px;"></div>
     </div>
 
     <div id="window-race-selector" class="ui-window draggable-window hidden" style="width: 400px; z-index: 2500;">
@@ -204,16 +302,15 @@ if (!isset($_SESSION['player_id'])) {
         </div>
     </div>
 
-    <div id="window-inventory" class="ui-window draggable-window hidden" style="width: 250px; max-width: 95vw;">
+    <div id="window-inventory" class="ui-window draggable-window hidden" style="width: 240px;">
         <div class="window-header drag-handle">
             <span>Inventory</span>
             <button class="close-win" onclick="toggleWindow('window-inventory')">&times;</button>
         </div>
-        <div class="window-content" style="padding: 12px; overflow: visible; display: flex; flex-direction: column; gap: 10px;">
+        <div class="window-content" style="padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; flex-shrink: 0;">
             <div class="bag-grid-layout" id="bag-container"></div>
             <div style="display:flex; justify-content:flex-end; padding-top:8px; border-top:1px solid rgba(255,255,255,0.05);">
                 <span style="color:#ffca28; font-weight:bold; font-size:12px; display:flex; align-items:center; gap:5px;">
-                    <img src="img/items/gold_coins.png" style="width:13px;height:13px;" onerror="this.style.display='none'">
                     <span id="ui-bag-gold">0 DPI</span>
                 </span>
             </div>
@@ -249,19 +346,54 @@ if (!isset($_SESSION['player_id'])) {
         </div>
     </div>
 
-    <!-- ===== MINI-HUD TOP-LEFT ===== -->
-    <div class="mini-hud" id="mini-hud">
-        <img id="mini-hud-photo" class="mini-hud-photo" src="img/races/humano.png" alt="char">
-        <div class="mini-hud-bars">
-            <div class="mini-bar-wrap" style="width:120px;">
-                <div class="mini-bar-fill mini-bar-hp" id="mini-hp-bar" style="width:100%;"></div>
-                <span class="mini-bar-text" id="mini-hp-text">HP</span>
-            </div>
-            <div class="mini-bar-wrap" style="width:120px;">
-                <div class="mini-bar-fill mini-bar-mp" id="mini-mp-bar" style="width:100%;"></div>
-                <span class="mini-bar-text" id="mini-mp-text">MP</span>
-            </div>
+    <!-- ===== HUD SUPERIOR ESQUERDO ===== -->
+    <div class="phud" id="mini-hud">
+
+        <!-- Avatar circular com anel decorativo -->
+        <div class="phud-avatar-ring">
+            <svg viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Anel externo escuro -->
+                <circle cx="35" cy="35" r="33" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+                <!-- Anel colorido dinâmico (HP) -->
+                <circle id="phud-ring" cx="35" cy="35" r="33"
+                    stroke="rgba(200,50,50,0.7)" stroke-width="3"
+                    stroke-dasharray="207.3" stroke-dashoffset="0"
+                    stroke-linecap="round"
+                    transform="rotate(-90 35 35)"
+                    style="transition: stroke-dashoffset 0.3s ease, stroke 0.3s;"/>
+            </svg>
+            <img id="mini-hud-photo" class="phud-photo" src="img/races/humano.png" alt="">
         </div>
+
+        <!-- Barras HP / MP / XP -->
+        <div class="phud-bars">
+
+            <div class="phud-bar-row">
+                <span class="phud-bar-label" style="color:rgba(220,80,80,0.9);">HP</span>
+                <div class="phud-bar-track">
+                    <div class="phud-bar-fill phud-fill-hp" id="mini-hp-bar" style="width:100%;"></div>
+                    <span class="phud-bar-val" id="mini-hp-text"></span>
+                </div>
+            </div>
+
+            <div class="phud-bar-row">
+                <span class="phud-bar-label" style="color:rgba(80,150,230,0.9);">MP</span>
+                <div class="phud-bar-track">
+                    <div class="phud-bar-fill phud-fill-mp" id="mini-mp-bar" style="width:100%;"></div>
+                    <span class="phud-bar-val" id="mini-mp-text"></span>
+                </div>
+            </div>
+
+            <div class="phud-bar-row">
+                <span class="phud-bar-label" style="color:rgba(240,160,0,0.9);">EP</span>
+                <div class="phud-bar-track">
+                    <div class="phud-bar-fill phud-fill-sp" id="mini-sp-bar" style="width:100%;"></div>
+                    <span class="phud-bar-val" id="mini-sp-text"></span>
+                </div>
+            </div>
+
+        </div>
+
         <!-- elementos fantasma para compatibilidade com o engine -->
         <div style="display:none;">
             <div id="bottom-hp-fill"></div><div id="bottom-mp-fill"></div>
@@ -270,13 +402,15 @@ if (!isset($_SESSION['player_id'])) {
     </div>
 
     <div class="hud-master-wrapper">
-        <div class="hud-side-drawer" id="hud-drawer">
+
+        <!-- Botões de menu sempre visíveis -->
+        <div class="hud-menu-btns">
             <button class="os-btn" onclick="toggleWindow('window-character')" title="[C] Character">👤</button>
             <button class="os-btn" onclick="toggleWindow('window-inventory')" title="[I] Inventory">🎒</button>
             <button class="os-btn" onclick="toggleWindow('window-maps')" title="[M] Maps">🗺️</button>
         </div>
-        <div class="drawer-toggle-btn" id="drawer-toggle" onclick="toggleDrawer()">◀</div>
 
+        <!-- Skills + XP -->
         <div class="hud-core">
             <div class="skills-row">
                 <div class="skill-mini-slot" id="skill-1" onclick="window.doAutoAttack && window.doAutoAttack()"><span class="key">1</span>⚔️</div>
@@ -285,18 +419,23 @@ if (!isset($_SESSION['player_id'])) {
                 <div class="skill-mini-slot" id="skill-4"><span class="key">4</span></div>
                 <div class="skill-mini-slot" id="skill-5"><span class="key">5</span></div>
             </div>
-            <div class="hud-xp-panel">
-                <div class="hud-xp-info">
-                    <span style="color:#e040fb;font-weight:bold;">LVL <span id="ui-level-display">1</span></span>
-                    <span style="color:#888;margin-left:10px;font-size:10px;">XP <span id="ui-xp-percent">0.00%</span></span>
+            <div class="hud-xp-row">
+                <span class="hud-xp-text">LV <span id="ui-level-display">1</span></span>
+                <div class="hud-xp-track">
+                    <div class="hud-xp-fill" id="hud-xp-fill"></div>
                 </div>
-                <div class="xp-segments">
-                    <?php for($i=0;$i<10;$i++) echo '<div class="xp-segment"><div class="xp-fill" id="xp-seg-'.$i.'"></div></div>'; ?>
-                </div>
+                <span class="hud-xp-text"><span id="ui-xp-percent">0.00%</span></span>
             </div>
         </div>
 
-        <div class="energy-badge" style="display:none;" id="ui-energy-text-wrap">EP<span id="ui-energy-text">100</span></div>
+        <!-- Elementos legado escondidos — engine ainda referencia estes IDs -->
+        <div style="display:none;">
+            <div id="hud-xp-strip-fill"></div>
+            <div id="phud-xp-bar"></div>
+            <div id="phud-level-num"></div>
+            <div id="ui-energy-text-wrap"><span id="ui-energy-text">100</span></div>
+            <div class="hud-xp-panel"><div class="hud-xp-info"></div><div class="xp-segments"><?php for($i=0;$i<10;$i++) echo '<div class="xp-segment"><div class="xp-fill" id="xp-seg-'.$i.'"></div></div>'; ?></div></div>
+        </div>
     </div>
 
     <button id="btn-settings-corner" class="corner-btn" onclick="toggleWindow('window-settings')" title="Settings">⚙️</button>
@@ -324,17 +463,6 @@ if (!isset($_SESSION['player_id'])) {
                 highestZ++; win.style.zIndex = highestZ;
             });
         });
-
-        function toggleDrawer() {
-            const drawer = document.getElementById('hud-drawer');
-            const btn = document.getElementById('drawer-toggle');
-            drawer.classList.toggle('open');
-            if(drawer.classList.contains('open')) {
-                btn.innerText = '▶'; btn.style.color = '#fff';
-            } else {
-                btn.innerText = '◀'; btn.style.color = '#aaa';
-            }
-        }
 
         function closeLootWindow() {
             document.getElementById('window-loot').classList.add('hidden');
@@ -435,29 +563,57 @@ if (!isset($_SESSION['player_id'])) {
         function lerp(a, b, t) { return a + (b - a) * t; }
 
         window.updateMiniHud = function() {
-            const hp    = window.playerCurrentHp || 0;
-            const maxHp = window.playerMaxHp     || 1;
-            const mp    = window.playerMana       || 0;
-            const maxMp = window.playerMaxMana    || 1;
+            const hp    = window.playerCurrentHp  || 0;
+            const maxHp = window.playerMaxHp      || 1;
+            const mp    = window.playerMana        || 0;
+            const maxMp = window.playerMaxMana     || 1;
+            const sp    = window.playerEnergy      || 0;
+            const maxSp = (window.playerData && window.playerData.max_energy) ? parseInt(window.playerData.max_energy) : 100;
 
             const hpPct = Math.max(0, Math.min(1, hp / maxHp));
             const mpPct = Math.max(0, Math.min(1, mp / maxMp));
+            const spPct = Math.max(0, Math.min(1, sp / maxSp));
 
             const hpBar = document.getElementById('mini-hp-bar');
             const mpBar = document.getElementById('mini-mp-bar');
+            const spBar = document.getElementById('mini-sp-bar');
             const hpTxt = document.getElementById('mini-hp-text');
             const mpTxt = document.getElementById('mini-mp-text');
+            const spTxt = document.getElementById('mini-sp-text');
 
             if (hpBar) {
                 hpBar.style.width = (hpPct * 100) + '%';
-                // Cor suave por opacidade: verde → amarelo → vermelho
-                if      (hpPct > 0.5)  hpBar.style.background = 'rgba(0,200,70,0.72)';
-                else if (hpPct > 0.25) hpBar.style.background = 'rgba(220,160,0,0.72)';
-                else                   hpBar.style.background = 'rgba(210,40,40,0.72)';
+                if      (hpPct > 0.5)  hpBar.style.background = 'rgba(50,190,90,0.85)';
+                else if (hpPct > 0.25) hpBar.style.background = 'rgba(210,150,0,0.85)';
+                else                   hpBar.style.background = 'rgba(210,40,40,0.85)';
             }
             if (mpBar) mpBar.style.width = (mpPct * 100) + '%';
-            if (hpTxt) hpTxt.innerText = hp + ' / ' + maxHp;
-            if (mpTxt) mpTxt.innerText = mp + ' / ' + maxMp;
+            if (spBar) spBar.style.width = (spPct * 100) + '%';
+            if (hpTxt) hpTxt.innerText = hp + '/' + maxHp;
+            if (mpTxt) mpTxt.innerText = mp + '/' + maxMp;
+            if (spTxt) spTxt.innerText = sp + '/' + maxSp;
+
+            // Anel SVG (segue HP)
+            const ring = document.getElementById('phud-ring');
+            if (ring) {
+                const circ = 207.3;
+                ring.style.strokeDashoffset = circ * (1 - hpPct);
+                if      (hpPct > 0.5)  ring.style.stroke = 'rgba(50,190,90,0.7)';
+                else if (hpPct > 0.25) ring.style.stroke = 'rgba(210,150,0,0.7)';
+                else                   ring.style.stroke = 'rgba(210,40,40,0.7)';
+            }
+        };
+
+        // XP bar no HUD inferior
+        window._updatePhudXp = function() {
+            const xpPct = window.playerNextLevelXp > 0
+                ? Math.min(1, (window.playerXp || 0) / window.playerNextLevelXp) : 0;
+            const xpFill = document.getElementById('hud-xp-fill');
+            const xpPct2 = document.getElementById('ui-xp-percent');
+            const lvDisp = document.getElementById('ui-level-display');
+            if (xpFill)  xpFill.style.width  = (xpPct * 100) + '%';
+            if (xpPct2)  xpPct2.innerText     = (xpPct * 100).toFixed(1) + '%';
+            if (lvDisp && window.playerLevel) lvDisp.innerText = window.playerLevel;
         };
 
         // Atualiza foto do personagem quando raça/sprite mudar
@@ -481,25 +637,21 @@ if (!isset($_SESSION['player_id'])) {
         // Monkey-patch updateHealthBars e updateMpUI para chamar mini-hud também
         const _origUpdateHealthBars = window.updateHealthBars;
         Object.defineProperty(window, 'updateHealthBars', {
-            set: function(fn) {
-                window._updateHealthBars = fn;
-            },
-            get: function() {
-                return function() {
-                    if (window._updateHealthBars) window._updateHealthBars();
-                    window.updateMiniHud();
-                };
-            }
+            set: function(fn) { window._updateHealthBars = fn; },
+            get: function() { return function() { if (window._updateHealthBars) window._updateHealthBars(); window.updateMiniHud(); }; }
         });
-        const _origUpdateMp = window.updateMpUI;
         Object.defineProperty(window, 'updateMpUI', {
             set: function(fn) { window._updateMpUI = fn; },
-            get: function() {
-                return function() {
-                    if (window._updateMpUI) window._updateMpUI();
-                    window.updateMiniHud();
-                };
-            }
+            get: function() { return function() { if (window._updateMpUI) window._updateMpUI(); window.updateMiniHud(); }; }
+        });
+        Object.defineProperty(window, 'updateEnergyUI', {
+            set: function(fn) { window._updateEnergyUI = fn; },
+            get: function() { return function() { if (window._updateEnergyUI) window._updateEnergyUI(); window.updateMiniHud(); }; }
+        });
+        // Monkey-patch updateXpUI para atualizar XP bar do HUD inferior
+        Object.defineProperty(window, 'updateXpUI', {
+            set: function(fn) { window._updateXpUI = fn; },
+            get: function() { return function() { if (window._updateXpUI) window._updateXpUI(); if (window._updatePhudXp) window._updatePhudXp(); }; }
         });
     })();
     </script>

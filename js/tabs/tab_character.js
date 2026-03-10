@@ -6,8 +6,7 @@ if(!document.getElementById('ks-rainbow-css')) {
 }
 
 window.renderCharacterSheet = function() {
-    const container = document.querySelector('#window-character .window-content');
-    if (!container || !window.playerData) return;
+    if (!window.playerData) return;
 
     const eq = window.equipmentStats || {};
     const p = window.playerData;
@@ -59,13 +58,15 @@ window.renderCharacterSheet = function() {
         const iconPath = found ? (found.icon_path || '') : '';
         const label    = found ? found.item_name + ' (' + found.rarity + ')' : eqLabels[cat];
         const itemId   = found ? found.id : '';
-        const border   = found ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)';
+        const border   = found ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)';
         const inner    = iconPath
-            ? '<img src="' + iconPath + '" style="width:82%;height:82%;object-fit:contain;pointer-events:none;" onerror="this.src=\'img/items/default.png\'">'
-            : '<span style="opacity:0.2;font-size:16px;pointer-events:none;">' + eqIcons[cat] + '</span>';
-        return '<div class="char-eq-slot" data-eq-cat="' + cat + '" data-item-id="' + itemId + '" title="' + label + '" style="width:40px;height:40px;border-radius:6px;background:rgba(0,0,0,0.45);display:flex;justify-content:center;align-items:center;position:relative;border:1px dashed ' + border + ';cursor:default;" ondragover="event.preventDefault()" ondragenter="this.style.borderColor=\'rgba(0,229,255,0.7)\'" ondragleave="this.style.borderColor=\'rgba(255,255,255,' + (found?'0.22':'0.07') + ')\'" ondrop="window._charSheetEquipDrop(event,this)">'
-             + inner
-             + '<span style="position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);font-size:7px;color:#555;white-space:nowrap;">' + eqLabels[cat] + '</span></div>';
+            ? '<img src="' + iconPath + '" style="width:78%;height:78%;object-fit:contain;pointer-events:none;" onerror="this.src=\'img/items/default.png\'">'
+            : '<span style="opacity:0.18;font-size:20px;pointer-events:none;">' + eqIcons[cat] + '</span>';
+        return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">'
+             + '<div class="char-eq-slot" data-eq-cat="' + cat + '" data-item-id="' + itemId + '" title="' + label + '" style="width:52px;height:52px;border-radius:8px;background:rgba(0,0,0,0.45);display:flex;justify-content:center;align-items:center;position:relative;border:1px dashed ' + border + ';cursor:default;" ondragover="event.preventDefault()" ondragenter="this.style.borderColor=\'rgba(0,229,255,0.7)\'" ondragleave="this.style.borderColor=\'' + border + '\'" ondrop="window._charSheetEquipDrop(event,this)">'
+             + inner + '</div>'
+             + '<span style="font-size:8px;color:#445;text-transform:uppercase;letter-spacing:0.5px;">' + eqLabels[cat] + '</span>'
+             + '</div>';
     }).join('');
 
     let skillsHtml = '';
@@ -106,30 +107,33 @@ window.renderCharacterSheet = function() {
         });
     }
 
+    const container = document.querySelector('#window-character .window-content');
+    if (!container) return;
+
     let html = `
         <div style="display: flex; gap: 15px; width: 100%; box-sizing: border-box; align-items: flex-start;">
-            
+
             <!-- Coluna esquerda -->
             <div style="width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
 
                 <!-- Preview -->
                 <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                    <div class="char-preview-box" style="margin: 0 auto 10px auto; width: 80px; height: 80px;">
-                        <img id="ui-preview-img" src="${p.sprite_path}" style="width: 60px; height: 60px; object-fit: contain; image-rendering: pixelated;">
+                    <div style="margin: 0 auto 10px auto; width: 80px; height: 80px; display:flex; align-items:center; justify-content:center;">
+                        <img id="ui-preview-img" src="${p.sprite_path}" style="width: 64px; height: 64px; object-fit: contain; image-rendering: pixelated; border-radius: 4px;">
                     </div>
                     <h2 style="color: #00e5ff; margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">${p.username}</h2>
                     <div style="color: #ffca28; font-size: 10px; font-weight: bold; margin-top:2px;">Lv. ${p.race_level || 1} ${p.race}</div>
-                    <div style="color: #aaa; font-size: 9px; margin-top:4px;">XP: ${parseInt(p.race_xp)} / ${window.playerNextLevelXp || 0}</div>
+                    <div style="color: #aaa; font-size: 9px; margin-top:4px;">XP: ${parseInt(p.race_xp||0)} / ${window.playerNextLevelXp || 0}</div>
                     <button class="menu-btn" style="margin-top: 10px; padding: 6px; font-size: 10px; background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.3); color: #00e5ff;" onclick="window.openRaceModal()">Transmute Soul</button>
                 </div>
 
-                <!-- Equipment — logo abaixo do character -->
+                <!-- Equipment -->
                 <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; border-bottom: 1px dashed rgba(255,255,255,0.07); padding-bottom: 5px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 1px dashed rgba(255,255,255,0.07); padding-bottom: 5px;">
                         <h3 style="color: #8fa0b5; font-size: 10px; margin: 0; text-transform:uppercase; letter-spacing:1px;">Equipment</h3>
                         <span style="font-size:9px; color:#444; font-style:italic;">drag from bag</span>
                     </div>
-                    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; padding-bottom:4px;">
+                    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                         ${equipSlotsHtml}
                     </div>
                 </div>
@@ -168,16 +172,16 @@ window.renderCharacterSheet = function() {
                         <h3 style="color: #ffae00; font-size: 10px; margin: 0; text-transform:uppercase; letter-spacing:1px;">Attributes</h3>
                         <span style="font-size:10px; color:#fff; background:rgba(255,174,0,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,174,0,0.4); font-weight:bold;">Pts: ${statPoints}</span>
                     </div>
-                    ${renderStatRow('Strength', 'STR', statSTR, statPoints > 0, '#ff4444')}
-                    ${renderStatRow('Dexterity', 'DEX', statDEX, statPoints > 0, '#00e676')}
-                    ${renderStatRow('Constitution', 'CON', statCON, statPoints > 0, '#ff9800')}
-                    ${renderStatRow('Intelligence', 'INT', statINT, statPoints > 0, '#00bfff')}
-                    ${renderStatRow('Wisdom', 'WIS', statWIS, statPoints > 0, '#b388ff')}
-                    ${renderStatRow('Charisma', 'CHA', statCHA, statPoints > 0, '#ffca28')}
+                    ${renderStatRow('Strength','STR',statSTR,statPoints>0,'#ff4444')}
+                    ${renderStatRow('Dexterity','DEX',statDEX,statPoints>0,'#00e676')}
+                    ${renderStatRow('Constitution','CON',statCON,statPoints>0,'#ff9800')}
+                    ${renderStatRow('Intelligence','INT',statINT,statPoints>0,'#00bfff')}
+                    ${renderStatRow('Wisdom','WIS',statWIS,statPoints>0,'#b388ff')}
+                    ${renderStatRow('Charisma','CHA',statCHA,statPoints>0,'#ffca28')}
                 </div>
             </div>
 
-            <!-- Coluna direita: Skills & Magic — sem scroll -->
+            <!-- Coluna direita: Skills -->
             <div style="flex: 1; display: flex; flex-direction: column; min-width: 240px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px;">
                     <h3 style="color: #8fa0b5; font-size: 10px; margin: 0; text-transform:uppercase; letter-spacing:1px;">Skills & Magic</h3>
@@ -189,9 +193,11 @@ window.renderCharacterSheet = function() {
             </div>
 
         </div>
-    `
+    `;
+
     container.innerHTML = html;
 };
+
 
 function renderStatRow(name, code, val, canUpgrade, color, disabled = false, isRainbow = false) {
     // AUR — atributo especial bloqueado com visual diferenciado
