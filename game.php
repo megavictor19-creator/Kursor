@@ -91,7 +91,7 @@ if (!isset($_SESSION['player_id'])) {
             padding: 8px 18px 8px 8px;
             gap: 0;
             pointer-events: none;
-            min-width: 240px;
+            min-width: 260px;
         }
 
         .phud-avatar-ring {
@@ -120,21 +120,21 @@ if (!isset($_SESSION['player_id'])) {
 
         .phud-bars {
             display: flex; flex-direction: column;
-            gap: 6px; flex: 1; margin-left: 12px;
+            gap: 5px; flex: 1; margin-left: 12px;
         }
         .phud-bar-row {
-            display: flex; align-items: center; gap: 7px;
+            display: flex; align-items: center; gap: 6px;
         }
         .phud-bar-label {
             font-size: 9px; font-weight: 800;
             font-family: 'Courier New', monospace;
-            letter-spacing: 0.5px; width: 18px;
+            letter-spacing: 0.5px; width: 16px;
             text-align: right; flex-shrink: 0;
-            opacity: 0.6;
+            opacity: 0.7;
         }
         .phud-bar-track {
-            flex: 1; height: 11px; border-radius: 3px;
-            background: rgba(255,255,255,0.05);
+            flex: 1; height: 14px; border-radius: 3px;
+            background: rgba(255,255,255,0.06);
             position: relative; overflow: hidden;
         }
         .phud-bar-fill {
@@ -143,16 +143,30 @@ if (!isset($_SESSION['player_id'])) {
             transition: width 0.3s ease;
         }
         .phud-bar-val {
-            position: absolute; right: 4px; top: 50%;
+            position: absolute; right: 5px; top: 50%;
             transform: translateY(-50%);
-            font-size: 8px; font-weight: 700;
-            color: rgba(255,255,255,0.65);
+            font-size: 10px; font-weight: 700;
+            color: rgba(255,255,255,0.75);
             font-family: 'Courier New', monospace;
             z-index: 2; white-space: nowrap;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
         }
-        .phud-fill-hp { background: rgba(210, 50, 50, 0.8); }
-        .phud-fill-mp { background: rgba(40, 110, 210, 0.8); }
-        .phud-fill-sp { background: rgba(220, 150, 0, 0.8); }
+        .phud-fill-hp { background: linear-gradient(90deg, rgba(180,30,30,0.85) 0%, rgba(220,60,60,0.85) 100%); }
+        .phud-fill-mp { background: linear-gradient(90deg, rgba(25,80,190,0.85) 0%, rgba(50,130,220,0.85) 100%); }
+        .phud-fill-sp { background: linear-gradient(90deg, rgba(180,110,0,0.85) 0%, rgba(230,160,0,0.85) 100%); }
+
+        /* mini info row abaixo das barras */
+        .phud-info-row {
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 4px; flex-wrap: wrap;
+        }
+        .phud-info-chip {
+            font-size: 9px; font-weight: 700;
+            font-family: 'Courier New', monospace;
+            color: rgba(180,200,220,0.55);
+            white-space: nowrap; display: flex; align-items: center; gap: 3px;
+        }
+        .phud-info-chip span { color: rgba(220,235,255,0.8); }
 
         /* =====================================================
            HUD INFERIOR
@@ -258,10 +272,11 @@ if (!isset($_SESSION['player_id'])) {
         <p>Your soul is fragmenting... Returning to SafePad.</p>
     </div>
 
-    <div id="top-info-hud" style="position: absolute; top: 15px; right: 20px; display: flex; flex-direction: column; gap: 5px; text-align: right; font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; color: rgba(0,229,255,0.75); pointer-events: none; z-index: 2000;">
-        <span id="ui-fps-display" style="display: none;">FPS: --</span>
-        <span id="ui-ping-display" style="display: none;">Ping: -- ms</span>
-        <span id="ui-coords-display" style="display: none;">X: -- | Y: --</span>
+    <!-- IDs legado para o engine — dados espelhados no phud agora -->
+    <div id="top-info-hud" style="display:none;">
+        <span id="ui-fps-display">FPS: --</span>
+        <span id="ui-ping-display">Ping: -- ms</span>
+        <span id="ui-coords-display">X: -- | Y: --</span>
     </div>
 
     <div id="chat-container" class="chat-container">
@@ -337,9 +352,9 @@ if (!isset($_SESSION['player_id'])) {
             <label class="setting-row"><span>Edge Scrolling</span><input type="checkbox" id="toggle-edge-scroll" checked></label>
             <label class="setting-row"><span>Cursor HUD</span><input type="checkbox" id="toggle-cursor-ui" checked></label>
             <label class="setting-row"><span>Player Name</span><input type="checkbox" id="toggle-name" checked></label>
-            <label class="setting-row"><span>Show Ping</span><input type="checkbox" id="toggle-ping"></label>
-            <label class="setting-row"><span>Show FPS</span><input type="checkbox" id="toggle-fps"></label>
-            <label class="setting-row"><span>Show Coords</span><input type="checkbox" id="toggle-coords"></label>
+            <label class="setting-row"><span>Show Ping</span><input type="checkbox" id="toggle-ping" onchange="document.getElementById('phud-ping-chip').style.display=this.checked?'flex':'none'"></label>
+            <label class="setting-row"><span>Show FPS</span><input type="checkbox" id="toggle-fps" onchange="document.getElementById('phud-fps-chip').style.display=this.checked?'flex':'none'"></label>
+            <label class="setting-row"><span>Show Coords</span><input type="checkbox" id="toggle-coords" onchange="document.getElementById('phud-coords-chip').style.display=this.checked?'flex':'none'"></label>
             <hr style="border: 0; border-top: 1px dashed rgba(255,255,255,0.08); margin: 20px 0 15px 0;">
             <button class="menu-btn" id="btn-logout" style="color: #ff4444; background: rgba(255,0,0,0.04);"><span style="font-size: 16px;">🚪</span> Disconnect</button>
         </div>
@@ -369,7 +384,7 @@ if (!isset($_SESSION['player_id'])) {
         <div class="phud-bars">
 
             <div class="phud-bar-row">
-                <span class="phud-bar-label" style="color:rgba(220,80,80,0.8);">HP</span>
+                <span class="phud-bar-label" style="color:rgba(220,80,80,0.85);">HP</span>
                 <div class="phud-bar-track">
                     <div class="phud-bar-fill phud-fill-hp" id="mini-hp-bar" style="width:100%;"></div>
                     <span class="phud-bar-val" id="mini-hp-text"></span>
@@ -377,7 +392,7 @@ if (!isset($_SESSION['player_id'])) {
             </div>
 
             <div class="phud-bar-row">
-                <span class="phud-bar-label" style="color:rgba(80,150,230,0.8);">MP</span>
+                <span class="phud-bar-label" style="color:rgba(80,150,230,0.85);">MP</span>
                 <div class="phud-bar-track">
                     <div class="phud-bar-fill phud-fill-mp" id="mini-mp-bar" style="width:100%;"></div>
                     <span class="phud-bar-val" id="mini-mp-text"></span>
@@ -385,11 +400,19 @@ if (!isset($_SESSION['player_id'])) {
             </div>
 
             <div class="phud-bar-row">
-                <span class="phud-bar-label" style="color:rgba(240,160,0,0.8);">EP</span>
+                <span class="phud-bar-label" style="color:rgba(240,160,0,0.85);">EP</span>
                 <div class="phud-bar-track">
                     <div class="phud-bar-fill phud-fill-sp" id="mini-sp-bar" style="width:100%;"></div>
                     <span class="phud-bar-val" id="mini-sp-text"></span>
                 </div>
+            </div>
+
+            <!-- linha de info: kills · coords · fps · ping -->
+            <div class="phud-info-row">
+                <div class="phud-info-chip" id="phud-kills-chip">⚔️ <span id="phud-kills-val">0</span></div>
+                <div class="phud-info-chip" id="phud-coords-chip" style="display:none;">📍 <span id="phud-coords-val">--</span></div>
+                <div class="phud-info-chip" id="phud-fps-chip" style="display:none;">🎯 <span id="phud-fps-val">--</span></div>
+                <div class="phud-info-chip" id="phud-ping-chip" style="display:none;">📶 <span id="phud-ping-val">--</span></div>
             </div>
 
         </div>
@@ -582,10 +605,14 @@ if (!isset($_SESSION['player_id'])) {
             if (mpBar) mpBar.style.width = (mpPct * 100) + '%';
             if (spBar) spBar.style.width = (spPct * 100) + '%';
 
-            // FIX #2 — floor para evitar decimais longos
-            if (hpTxt) hpTxt.innerText = Math.floor(hp) + '/' + Math.floor(maxHp);
-            if (mpTxt) mpTxt.innerText = Math.floor(mp) + '/' + Math.floor(maxMp);
-            if (spTxt) spTxt.innerText = Math.floor(sp) + '/' + Math.floor(maxSp);
+            // Valores dentro das barras — só atual, sem /max
+            if (hpTxt) hpTxt.innerText = Math.floor(hp);
+            if (mpTxt) mpTxt.innerText = Math.floor(mp);
+            if (spTxt) spTxt.innerText = Math.floor(sp);
+
+            // Kills chip
+            const killsEl = document.getElementById('phud-kills-val');
+            if (killsEl) killsEl.innerText = window.playerData?.kills ?? 0;
 
             // Anel SVG (segue HP)
             const ring = document.getElementById('phud-ring');
@@ -640,6 +667,26 @@ if (!isset($_SESSION['player_id'])) {
             set: function(fn) { window._updateXpUI = fn; },
             get: function() { return function() { if (window._updateXpUI) window._updateXpUI(); if (window._updatePhudXp) window._updatePhudXp(); }; }
         });
+    })();
+    </script>
+
+    <script>
+    // ── Espelha ui-fps/ping/coords → chips do phud ──────────────
+    (function() {
+        function mirrorChips() {
+            const fpsEl    = document.getElementById('ui-fps-display');
+            const pingEl   = document.getElementById('ui-ping-display');
+            const coordsEl = document.getElementById('ui-coords-display');
+
+            const fpsVal    = document.getElementById('phud-fps-val');
+            const pingVal   = document.getElementById('phud-ping-val');
+            const coordsVal = document.getElementById('phud-coords-val');
+
+            if (fpsEl   && fpsVal)    fpsVal.innerText    = fpsEl.innerText.replace('FPS: ', '');
+            if (pingEl  && pingVal)   pingVal.innerText   = pingEl.innerText.replace('Ping: ', '');
+            if (coordsEl && coordsVal) coordsVal.innerText = coordsEl.innerText.replace('X: ', '').replace(' | Y: ', ' · ');
+        }
+        setInterval(mirrorChips, 500);
     })();
     </script>
 </body>
