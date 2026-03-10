@@ -27,16 +27,7 @@ async function loadServerData() {
             SERVER_DATA.monsters = data.monsters || [];
             
             console.log(`[+] SUCCESS! ${SERVER_DATA.monsters.length} monsters and ${SERVER_DATA.items.length} items loaded.`);
-
-            // Só spawna mobs na primeira carga (boot).
-            // No admin_reload apenas atualiza os dados sem spawnar novos mobs.
-            if (Object.keys(monsters).length === 0) {
-                const initialCount = parseInt(SERVER_DATA.settings.initial_spawn_count) || 45;
-                for (let i = 0; i < initialCount; i++) spawnMonster();
-                console.log(`[+] Spawned ${initialCount} initial monsters.`);
-            } else {
-                console.log(`[+] Data refreshed. Active monsters unchanged: ${Object.keys(monsters).length}`);
-            }
+            for(let i = 0; i < 45; i++) spawnMonster();
         }
     } catch (err) { 
         console.log("[-] FATAL ERROR: PHP API unreachable."); 
@@ -45,10 +36,6 @@ async function loadServerData() {
 
 function spawnMonster() {
     if (SERVER_DATA.monsters.length === 0) return;
-
-    // Cap máximo — nunca ultrapassa initial_spawn_count * 1.5 para evitar acúmulo
-    const maxMobs = Math.floor((parseInt(SERVER_DATA.settings.initial_spawn_count) || 45) * 1.5);
-    if (Object.keys(monsters).length >= maxMobs) return;
     
     const id = Math.random().toString(36).substring(2, 10);
     const tpl = SERVER_DATA.monsters[Math.floor(Math.random() * SERVER_DATA.monsters.length)];
@@ -168,9 +155,20 @@ function generateLootForMob(mob) {
     let dropMultiplier = parseFloat(SERVER_DATA.settings.drop_rate_multiplier) || 1.0;
     if (mob.isElite) dropMultiplier *= 2.0;
 
-    if (mob.maxGold > 0 && Math.random() < 0.8) { 
-        let goldAmt = Math.floor(Math.random() * (mob.maxGold - mob.minGold + 1)) + mob.minGold;
-        loot.push({ type: 'gold', amount: goldAmt * dropMultiplier, name: 'Gold', icon_path: 'img/items/gold_coins.png', cost: 2, color: '#ffca28' });
+    if (mob.maxGold > 0 && Math.random() < 0.8) {
+        // gold_drop_min/max agora representam cobre (bronze)
+        // 100 bronze = 1 prata, 100 prata = 1 ouro (1 ouro = 10000 bronze)
+        let baseCopper = Math.floor(Math.random() * (mob.maxGold - mob.minGold + 1)) + mob.minGold;
+        let copperAmt  = Math.floor(baseCopper * dropMultiplier);
+        let g = Math.floor(copperAmt / 10000);
+        let s = Math.floor((copperAmt % 10000) / 100);
+        let b = copperAmt % 100;
+        // monta label legível para o floating text
+        let parts = [];
+        if (g > 0) parts.push(g + 'G');
+        if (s > 0) parts.push(s + 'S');
+        if (b > 0 || parts.length === 0) parts.push(b + 'B');
+        loot.push({ type: 'gold', copper: copperAmt, label: parts.join(' '), icon_path: 'img/items/gold_coins.png', cost: 2, color: '#ffca28' });
     }
 
     if (mob.droplist && mob.droplist.trim() !== "") {
@@ -221,14 +219,6 @@ wss.on('connection', (ws) => {
 
             if (data.type === 'request_mobs') {
                 ws.send(JSON.stringify({ type: 'init_mobs', mobs: Object.values(monsters) }));
-            }
-
-            if (data.type === 'admin_reload') {
-                console.log(`[ADMIN] Reload server data requested by ${players[id]?.username || id}`);
-                loadServerData().then(() => {
-                    ws.send(JSON.stringify({ type: 'chat_msg', channel: 'system', sender: 'System', text: '✔ Server data reloaded. Active mobs unchanged.' }));
-                    broadcast({ type: 'chat_msg', channel: 'system', sender: 'System', text: '⚙ Server data reloaded by admin.' });
-                });
             }
 
             if (data.type === 'move' && players[id]) {

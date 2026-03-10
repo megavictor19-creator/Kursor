@@ -91,7 +91,7 @@ if (!isset($_SESSION['player_id'])) {
             padding: 8px 18px 8px 8px;
             gap: 0;
             pointer-events: none;
-            min-width: 260px;
+            min-width: 240px;
         }
 
         .phud-avatar-ring {
@@ -120,21 +120,21 @@ if (!isset($_SESSION['player_id'])) {
 
         .phud-bars {
             display: flex; flex-direction: column;
-            gap: 5px; flex: 1; margin-left: 12px;
+            gap: 6px; flex: 1; margin-left: 12px;
         }
         .phud-bar-row {
-            display: flex; align-items: center; gap: 6px;
+            display: flex; align-items: center; gap: 7px;
         }
         .phud-bar-label {
             font-size: 9px; font-weight: 800;
             font-family: 'Courier New', monospace;
-            letter-spacing: 0.5px; width: 16px;
+            letter-spacing: 0.5px; width: 18px;
             text-align: right; flex-shrink: 0;
-            opacity: 0.7;
+            opacity: 0.6;
         }
         .phud-bar-track {
-            flex: 1; height: 14px; border-radius: 3px;
-            background: rgba(255,255,255,0.06);
+            flex: 1; height: 11px; border-radius: 3px;
+            background: rgba(255,255,255,0.05);
             position: relative; overflow: hidden;
         }
         .phud-bar-fill {
@@ -143,30 +143,16 @@ if (!isset($_SESSION['player_id'])) {
             transition: width 0.3s ease;
         }
         .phud-bar-val {
-            position: absolute; right: 5px; top: 50%;
+            position: absolute; right: 4px; top: 50%;
             transform: translateY(-50%);
-            font-size: 10px; font-weight: 700;
-            color: rgba(255,255,255,0.75);
+            font-size: 8px; font-weight: 700;
+            color: rgba(255,255,255,0.65);
             font-family: 'Courier New', monospace;
             z-index: 2; white-space: nowrap;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
         }
-        .phud-fill-hp { background: linear-gradient(90deg, rgba(180,30,30,0.85) 0%, rgba(220,60,60,0.85) 100%); }
-        .phud-fill-mp { background: linear-gradient(90deg, rgba(25,80,190,0.85) 0%, rgba(50,130,220,0.85) 100%); }
-        .phud-fill-sp { background: linear-gradient(90deg, rgba(180,110,0,0.85) 0%, rgba(230,160,0,0.85) 100%); }
-
-        /* mini info row abaixo das barras */
-        .phud-info-row {
-            display: flex; align-items: center; gap: 8px;
-            margin-top: 4px; flex-wrap: wrap;
-        }
-        .phud-info-chip {
-            font-size: 9px; font-weight: 700;
-            font-family: 'Courier New', monospace;
-            color: rgba(180,200,220,0.55);
-            white-space: nowrap; display: flex; align-items: center; gap: 3px;
-        }
-        .phud-info-chip span { color: rgba(220,235,255,0.8); }
+        .phud-fill-hp { background: rgba(210, 50, 50, 0.8); }
+        .phud-fill-mp { background: rgba(40, 110, 210, 0.8); }
+        .phud-fill-sp { background: rgba(220, 150, 0, 0.8); }
 
         /* =====================================================
            HUD INFERIOR
@@ -178,10 +164,10 @@ if (!isset($_SESSION['player_id'])) {
             gap: 6px; z-index: 2000;
         }
         .hud-menu-btns {
-            display: flex; flex-direction: column; gap: 5px;
+            display: flex; flex-direction: row; gap: 5px;
             background: rgba(0,0,0,0.52);
             border-radius: 10px;
-            padding: 8px 6px;
+            padding: 6px 8px;
         }
         .os-btn {
             background: transparent; border: none; border-radius: 6px;
@@ -195,7 +181,7 @@ if (!isset($_SESSION['player_id'])) {
         .hud-core {
             background: rgba(0,0,0,0.52);
             border-radius: 12px;
-            padding: 10px 14px 6px;
+            padding: 8px 14px 6px;
             display: flex; flex-direction: column;
             align-items: center; gap: 6px;
         }
@@ -221,20 +207,39 @@ if (!isset($_SESSION['player_id'])) {
             width: 100%; display: flex; align-items: center; gap: 7px;
         }
         .hud-xp-track {
-            flex: 1; height: 4px; border-radius: 3px;
-            background: rgba(255,255,255,0.05); overflow: hidden;
+            flex: 1; height: 14px; border-radius: 3px;
+            background: rgba(255,255,255,0.06);
+            position: relative; overflow: hidden;
         }
         .hud-xp-fill {
-            height: 100%; width: 0%;
-            background: rgba(155,55,210,0.75);
-            transition: width 0.3s;
+            position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+            background: linear-gradient(90deg,rgba(120,30,200,0.85),rgba(175,75,240,0.85));
+            transition: width 0.3s; border-radius: 3px;
+        }
+        .hud-xp-inner-val {
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%,-50%);
+            font-size: 9px; font-weight: 700;
+            font-family: 'Courier New', monospace;
+            color: rgba(255,255,255,0.8);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+            white-space: nowrap; pointer-events: none; z-index: 2;
         }
         .hud-xp-text {
-            font-size: 9px; font-weight: 800;
-            color: rgba(180,110,240,0.75);
+            font-size: 10px; font-weight: 800;
+            color: rgba(180,110,240,0.8);
             font-family: 'Courier New', monospace;
             white-space: nowrap; flex-shrink: 0;
         }
+
+        .hud-info-strip { width:100%; display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden; margin-top:2px; }
+        .hud-info-strip .hi { font-size:10px; font-weight:700; font-family:'Courier New',monospace; color:rgba(180,200,220,0.5); white-space:nowrap; }
+        .hud-info-strip .hi b { color:rgba(210,230,255,0.78); font-weight:700; }
+        .hud-info-strip .sep { color:rgba(255,255,255,0.12); font-size:8px; }
+
+        .phud-chips { display:flex; gap:8px; margin-top:2px; }
+        .phud-chip { font-size:9px; font-weight:700; font-family:'Courier New',monospace; color:rgba(255,255,255,0.4); white-space:nowrap; }
+        .phud-chip b { color:rgba(220,235,255,0.75); }
 
         .corner-btn { position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.52); border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 2000; transition: 0.15s; }
         .corner-btn:hover { transform: scale(1.1) rotate(45deg); }
@@ -272,8 +277,8 @@ if (!isset($_SESSION['player_id'])) {
         <p>Your soul is fragmenting... Returning to SafePad.</p>
     </div>
 
-    <!-- IDs legado para o engine — dados espelhados no phud agora -->
-    <div id="top-info-hud" style="display:none;">
+    <!-- IDs legado — engine escreve aqui, mirror copia p/ hud-info-strip -->
+    <div id="top-info-hud" style="display:none;" aria-hidden="true">
         <span id="ui-fps-display">FPS: --</span>
         <span id="ui-ping-display">Ping: -- ms</span>
         <span id="ui-coords-display">X: -- | Y: --</span>
@@ -325,7 +330,7 @@ if (!isset($_SESSION['player_id'])) {
             <div class="bag-grid-layout" id="bag-container"></div>
             <div style="display:flex; justify-content:flex-end; padding-top:6px; border-top:1px solid rgba(255,255,255,0.04);">
                 <span style="color:#ffca28; font-weight:bold; font-size:12px; display:flex; align-items:center; gap:5px;">
-                    <span id="ui-bag-gold">0 DPI</span>
+                    <span id="ui-bag-gold" style="display:flex;gap:6px;align-items:center;"><span style="color:#ffd700;">🥇<span id="bag-g">0</span></span><span style="color:#c8d7eb;">🥈<span id="bag-s">0</span></span><span style="color:#c89b64;">🥉<span id="bag-b">0</span></span></span>
                 </span>
             </div>
         </div>
@@ -352,9 +357,9 @@ if (!isset($_SESSION['player_id'])) {
             <label class="setting-row"><span>Edge Scrolling</span><input type="checkbox" id="toggle-edge-scroll" checked></label>
             <label class="setting-row"><span>Cursor HUD</span><input type="checkbox" id="toggle-cursor-ui" checked></label>
             <label class="setting-row"><span>Player Name</span><input type="checkbox" id="toggle-name" checked></label>
-            <label class="setting-row"><span>Show Ping</span><input type="checkbox" id="toggle-ping" onchange="document.getElementById('phud-ping-chip').style.display=this.checked?'flex':'none'"></label>
-            <label class="setting-row"><span>Show FPS</span><input type="checkbox" id="toggle-fps" onchange="document.getElementById('phud-fps-chip').style.display=this.checked?'flex':'none'"></label>
-            <label class="setting-row"><span>Show Coords</span><input type="checkbox" id="toggle-coords" onchange="document.getElementById('phud-coords-chip').style.display=this.checked?'flex':'none'"></label>
+            <label class="setting-row"><span>Show Ping</span><input type="checkbox" id="toggle-ping" onchange="var s=this.checked?'inline':'none';document.getElementById('hud-ping-chip').style.display=s;document.getElementById('hud-sep-ping').style.display=s;"></label>
+            <label class="setting-row"><span>Show FPS</span><input type="checkbox" id="toggle-fps" onchange="var s=this.checked?'inline':'none';document.getElementById('hud-fps-chip').style.display=s;document.getElementById('hud-sep-fps').style.display=s;"></label>
+            <label class="setting-row"><span>Show Coords</span><input type="checkbox" id="toggle-coords" onchange="var s=this.checked?'inline':'none';document.getElementById('hud-coords-chip').style.display=s;document.getElementById('hud-sep-coords').style.display=s;"></label>
             <hr style="border: 0; border-top: 1px dashed rgba(255,255,255,0.08); margin: 20px 0 15px 0;">
             <button class="menu-btn" id="btn-logout" style="color: #ff4444; background: rgba(255,0,0,0.04);"><span style="font-size: 16px;">🚪</span> Disconnect</button>
         </div>
@@ -384,7 +389,7 @@ if (!isset($_SESSION['player_id'])) {
         <div class="phud-bars">
 
             <div class="phud-bar-row">
-                <span class="phud-bar-label" style="color:rgba(220,80,80,0.85);">HP</span>
+                <span class="phud-bar-label" style="color:rgba(220,80,80,0.8);">HP</span>
                 <div class="phud-bar-track">
                     <div class="phud-bar-fill phud-fill-hp" id="mini-hp-bar" style="width:100%;"></div>
                     <span class="phud-bar-val" id="mini-hp-text"></span>
@@ -392,7 +397,7 @@ if (!isset($_SESSION['player_id'])) {
             </div>
 
             <div class="phud-bar-row">
-                <span class="phud-bar-label" style="color:rgba(80,150,230,0.85);">MP</span>
+                <span class="phud-bar-label" style="color:rgba(80,150,230,0.8);">MP</span>
                 <div class="phud-bar-track">
                     <div class="phud-bar-fill phud-fill-mp" id="mini-mp-bar" style="width:100%;"></div>
                     <span class="phud-bar-val" id="mini-mp-text"></span>
@@ -400,19 +405,17 @@ if (!isset($_SESSION['player_id'])) {
             </div>
 
             <div class="phud-bar-row">
-                <span class="phud-bar-label" style="color:rgba(240,160,0,0.85);">EP</span>
+                <span class="phud-bar-label" style="color:rgba(240,160,0,0.8);">EP</span>
                 <div class="phud-bar-track">
                     <div class="phud-bar-fill phud-fill-sp" id="mini-sp-bar" style="width:100%;"></div>
                     <span class="phud-bar-val" id="mini-sp-text"></span>
                 </div>
             </div>
 
-            <!-- linha de info: kills · coords · fps · ping -->
-            <div class="phud-info-row">
-                <div class="phud-info-chip" id="phud-kills-chip">⚔️ <span id="phud-kills-val">0</span></div>
-                <div class="phud-info-chip" id="phud-coords-chip" style="display:none;">📍 <span id="phud-coords-val">--</span></div>
-                <div class="phud-info-chip" id="phud-fps-chip" style="display:none;">🎯 <span id="phud-fps-val">--</span></div>
-                <div class="phud-info-chip" id="phud-ping-chip" style="display:none;">📶 <span id="phud-ping-val">--</span></div>
+            <!-- moedas + kills -->
+            <div class="phud-chips">
+                <span class="phud-chip">⚔️ <b id="phud-kills-val">0</b></span>
+                <span class="phud-chip" style="color:rgba(255,200,50,0.5);">🥇<b id="phud-gold-g" style="color:rgba(255,210,50,0.85);">0</b> 🥈<b id="phud-gold-s" style="color:rgba(200,215,235,0.8);">0</b> 🥉<b id="phud-gold-b" style="color:rgba(200,155,100,0.8);">0</b></span>
             </div>
 
         </div>
@@ -444,10 +447,20 @@ if (!isset($_SESSION['player_id'])) {
             </div>
             <div class="hud-xp-row">
                 <span class="hud-xp-text">LV <span id="ui-level-display">1</span></span>
-                <div class="hud-xp-track">
+                <div class="hud-xp-track" style="position:relative;">
                     <div class="hud-xp-fill" id="hud-xp-fill"></div>
+                    <span class="hud-xp-inner-val" id="ui-xp-vals">0/0</span>
                 </div>
-                <span class="hud-xp-text"><span id="ui-xp-percent">0.00%</span></span>
+                <span class="hud-xp-text" style="font-size:9px;"><span id="ui-xp-percent">0%</span></span>
+            </div>
+            <div class="hud-info-strip">
+                <span class="hi">🗺️ <b id="hud-zone-val">--</b></span>
+                <span class="sep" id="hud-sep-coords" style="display:none;">·</span>
+                <span class="hi" id="hud-coords-chip" style="display:none;">📍 X:<b id="hud-coords-x">--</b> Y:<b id="hud-coords-y">--</b></span>
+                <span class="sep" id="hud-sep-fps" style="display:none;">·</span>
+                <span class="hi" id="hud-fps-chip" style="display:none;"><b id="hud-fps-val">--</b> FPS</span>
+                <span class="sep" id="hud-sep-ping" style="display:none;">·</span>
+                <span class="hi" id="hud-ping-chip" style="display:none;"><b id="hud-ping-val">--</b> MS</span>
             </div>
         </div>
 
@@ -605,14 +618,28 @@ if (!isset($_SESSION['player_id'])) {
             if (mpBar) mpBar.style.width = (mpPct * 100) + '%';
             if (spBar) spBar.style.width = (spPct * 100) + '%';
 
-            // Valores dentro das barras — só atual, sem /max
+            // valor atual dentro das barras
             if (hpTxt) hpTxt.innerText = Math.floor(hp);
             if (mpTxt) mpTxt.innerText = Math.floor(mp);
             if (spTxt) spTxt.innerText = Math.floor(sp);
-
-            // Kills chip
-            const killsEl = document.getElementById('phud-kills-val');
-            if (killsEl) killsEl.innerText = window.playerData?.kills ?? 0;
+            // kills
+            const _kc = document.getElementById('phud-kills-val');
+            if (_kc) _kc.innerText = window.playerKills ?? 0;
+            // moedas: total bronze → ouro/prata/bronze
+            const totalCopper = Math.floor(window.playerGold || 0);
+            const _bg = document.getElementById('phud-gold-g');
+            const _bs = document.getElementById('phud-gold-s');
+            const _bb = document.getElementById('phud-gold-b');
+            if (_bg) _bg.innerText = Math.floor(totalCopper / 10000);
+            if (_bs) _bs.innerText = Math.floor((totalCopper % 10000) / 100);
+            if (_bb) _bb.innerText = totalCopper % 100;
+            // inventory bag display
+            const _bag = document.getElementById('bag-g');
+            const _bgs = document.getElementById('bag-s');
+            const _bbb = document.getElementById('bag-b');
+            if (_bag) _bag.innerText = Math.floor(totalCopper / 10000);
+            if (_bgs) _bgs.innerText = Math.floor((totalCopper % 10000) / 100);
+            if (_bbb) _bbb.innerText = totalCopper % 100;
 
             // Anel SVG (segue HP)
             const ring = document.getElementById('phud-ring');
@@ -631,9 +658,14 @@ if (!isset($_SESSION['player_id'])) {
             const xpFill = document.getElementById('hud-xp-fill');
             const xpPct2 = document.getElementById('ui-xp-percent');
             const lvDisp = document.getElementById('ui-level-display');
-            if (xpFill)  xpFill.style.width  = (xpPct * 100) + '%';
-            if (xpPct2)  xpPct2.innerText     = (xpPct * 100).toFixed(1) + '%';
+            const xpVals = document.getElementById('ui-xp-vals');
+            if (xpFill) xpFill.style.width = (xpPct * 100) + '%';
+            if (xpPct2) xpPct2.innerText = Math.round(xpPct * 100) + '%';
             if (lvDisp && window.playerLevel) lvDisp.innerText = window.playerLevel;
+            if (xpVals) xpVals.innerText = Math.floor(window.playerXp||0) + '/' + Math.floor(window.playerNextLevelXp||0);
+            // zona
+            const zoneEl = document.getElementById('hud-zone-val');
+            if (zoneEl && window.playerData) zoneEl.innerText = window.playerData.current_zone || '--';
         };
 
         window.updateMiniHudPhoto = function() {
@@ -671,22 +703,25 @@ if (!isset($_SESSION['player_id'])) {
     </script>
 
     <script>
-    // ── Espelha ui-fps/ping/coords → chips do phud ──────────────
-    (function() {
-        function mirrorChips() {
-            const fpsEl    = document.getElementById('ui-fps-display');
-            const pingEl   = document.getElementById('ui-ping-display');
-            const coordsEl = document.getElementById('ui-coords-display');
-
-            const fpsVal    = document.getElementById('phud-fps-val');
-            const pingVal   = document.getElementById('phud-ping-val');
-            const coordsVal = document.getElementById('phud-coords-val');
-
-            if (fpsEl   && fpsVal)    fpsVal.innerText    = fpsEl.innerText.replace('FPS: ', '');
-            if (pingEl  && pingVal)   pingVal.innerText   = pingEl.innerText.replace('Ping: ', '');
-            if (coordsEl && coordsVal) coordsVal.innerText = coordsEl.innerText.replace('X: ', '').replace(' | Y: ', ' · ');
+    // espelha engine legado → hud-info-strip
+    (function(){
+        function mirror(){
+            var fps   = document.getElementById('ui-fps-display');
+            var ping  = document.getElementById('ui-ping-display');
+            var coord = document.getElementById('ui-coords-display');
+            var fv  = document.getElementById('hud-fps-val');
+            var pv  = document.getElementById('hud-ping-val');
+            var cx  = document.getElementById('hud-coords-x');
+            var cy  = document.getElementById('hud-coords-y');
+            if (fps  && fv) fv.innerText = fps.innerText.replace('FPS: ','');
+            if (ping && pv) pv.innerText = ping.innerText.replace('Ping: ','').replace(' ms','');
+            if (coord && cx && cy) {
+                var raw = coord.innerText; // "X: 123 | Y: 456"
+                var m = raw.match(/X:\s*(-?\d+)\s*\|\s*Y:\s*(-?\d+)/);
+                if (m) { cx.innerText = m[1]; cy.innerText = m[2]; }
+            }
         }
-        setInterval(mirrorChips, 500);
+        setInterval(mirror, 400);
     })();
     </script>
 </body>

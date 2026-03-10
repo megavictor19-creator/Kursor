@@ -220,20 +220,22 @@ function bootCombatEngine() {
             const goldItems = data.loot.filter(l => l.type === 'gold');
             const itemsOnly = data.loot.filter(l => l.type !== 'gold');
 
-            // Gold: direto no contador, sem cair no chão
+            // Moedas: usa sistema ouro/prata/bronze (valor em cobre/bronze)
             goldItems.forEach(g => {
-                const amt = Math.floor(g.amount);
-                if (amt <= 0) return;
-                window.playerGold = (window.playerGold || 0) + amt;
-                const uiGold = document.getElementById('ui-bag-gold');
-                if (uiGold) uiGold.innerText = window.playerGold + ' DPI';
-                window.showFloatingText(data.x, data.y - 20, `+${amt} DPI`, "#ffca28", {
-                    fontSize: "13px", riseY: 38, duration: 1100
+                const copper = Math.floor(g.copper || g.amount || 0);
+                if (copper <= 0) return;
+                window.playerGold = (window.playerGold || 0) + copper;
+                // atualiza HUD imediatamente via updateMiniHud
+                if (typeof window.updateMiniHud === 'function') window.updateMiniHud();
+                // floating text com label decomposto
+                const label = g.label || ('+' + copper + 'B');
+                window.showFloatingText(data.x, data.y - 20, '+' + label, '#ffca28', {
+                    fontSize: '13px', riseY: 38, duration: 1100
                 });
                 fetch('backend/api_inventory.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'add_gold', amount: amt })
+                    body: JSON.stringify({ action: 'add_gold', amount: copper })
                 }).catch(() => {});
             });
 
