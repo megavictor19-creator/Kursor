@@ -41,8 +41,8 @@ function bootCombatEngine() {
 
     window.updateMpUI = function() {
         if(!window.playerMaxMana) return;
-        const uiStatMp = document.getElementById('ui-stat-mp'); if(uiStatMp) uiStatMp.innerText = `${Math.floor(window.playerMana)}/${window.playerMaxMana}`;
-        const bottomMpText = document.getElementById('ui-mp-text'); if(bottomMpText) bottomMpText.innerText = `${Math.floor(window.playerMana)} / ${window.playerMaxMana}`;
+        const uiStatMp = document.getElementById('ui-stat-mp'); if(uiStatMp) uiStatMp.innerText = `${Math.floor(window.playerMana)}/${Math.floor(window.playerMaxMana)}`;
+        const bottomMpText = document.getElementById('ui-mp-text'); if(bottomMpText) bottomMpText.innerText = `${Math.floor(window.playerMana)} / ${Math.floor(window.playerMaxMana)}`;
         const bottomMpFill = document.getElementById('bottom-mp-fill'); if(bottomMpFill) bottomMpFill.style.width = `${Math.max(0, (window.playerMana / window.playerMaxMana) * 100)}%`;
     };
 
@@ -76,12 +76,32 @@ function bootCombatEngine() {
         if(typeof window.updatePlayerHpRing === 'function') window.updatePlayerHpRing(window.playerCurrentHp, window.playerMaxHp, window.playerShield);
     };
 
-    window.showFloatingText = function(x, y, text, color) {
-        const txt = document.createElement("div"); txt.innerText = text;
-        Object.assign(txt.style, { position: "absolute", left: "0", top: "0", transform: `translate3d(${x}px, ${y}px, 0)`, color: color, fontWeight: "bold", fontSize: "14px", fontFamily: "'Courier New', monospace", pointerEvents: "none", zIndex: "9999", textShadow: "1px 1px 0px #000", transition: "transform 1s ease-out, opacity 1s" });
+    // ── showFloatingText com suporte a tamanho e peso ─────────
+    window.showFloatingText = function(x, y, text, color, options = {}) {
+        const txt = document.createElement("div");
+        txt.innerText = text;
+        const fontSize = options.fontSize || "14px";
+        const fontWeight = options.fontWeight || "bold";
+        const shadow = options.shadow || "1px 1px 0px #000";
+        const riseY = options.riseY || 40;
+        const duration = options.duration || 1000;
+        Object.assign(txt.style, {
+            position: "absolute", left: "0", top: "0",
+            transform: `translate3d(${x}px, ${y}px, 0)`,
+            color: color, fontWeight: fontWeight,
+            fontSize: fontSize,
+            fontFamily: "'Courier New', monospace",
+            pointerEvents: "none", zIndex: "9999",
+            textShadow: shadow,
+            transition: `transform ${duration}ms ease-out, opacity ${duration}ms`,
+            whiteSpace: "nowrap"
+        });
         worldMap.appendChild(txt); 
-        requestAnimationFrame(() => { txt.style.transform = `translate3d(${x}px, ${y-40}px, 0)`; txt.style.opacity = "0"; });
-        setTimeout(() => txt.remove(), 1000);
+        requestAnimationFrame(() => {
+            txt.style.transform = `translate3d(${x + (options.driftX || 0)}px, ${y - riseY}px, 0)`;
+            txt.style.opacity = "0";
+        });
+        setTimeout(() => txt.remove(), duration);
     };
 
     window.combatWs = new WebSocket('ws://127.0.0.1:8080');
@@ -97,12 +117,13 @@ function bootCombatEngine() {
                     window.mobState[mobData.id].targetX = mobData.x; window.mobState[mobData.id].targetY = mobData.y;
                     if (window.mobState[mobData.id].hp !== mobData.hp) {
                         window.mobState[mobData.id].hp = mobData.hp;
-                        const hpFill = window.mobCacheDOM[mobData.id].querySelector('.mob-hp-fill');
+                        const hpFill = window.mobCacheDOM[mobData.id] && window.mobCacheDOM[mobData.id].querySelector('.mob-hp-fill');
                         if(hpFill) hpFill.style.width = `${Math.max(0, (mobData.hp / mobData.maxHp) * 100)}%`;
                     }
                 }
             });
         }
+
         if (data.type === 'play_effect') { 
             if(typeof window.triggerSkillEffect === 'function') window.triggerSkillEffect(data.x, data.y, data.effect, data.tX, data.tY); 
             
@@ -111,43 +132,61 @@ function bootCombatEngine() {
                 if (dist <= 250 && dist > 0) { 
                     let sVal = Math.floor(50 + (window.playerMaxHp * 0.15));
                     window.playerShield = sVal;
-                    window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `🛡️ +${sVal} ALLY SHIELD`, "#00bfff");
+                    window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `🛡️ +${sVal} SHIELD`, "#00bfff");
                     window.updateHealthBars();
                 }
             }
         }
 
+        // ── Dano saindo do monstro (hit no mob) ───────────────
         if (data.type === 'mob_hit') {
-            if (window.mobCacheDOM[data.id]) {
+            if (window.mobCacheDOM[data.id] && window.mobState[data.id]) {
                 const sprite = window.mobCacheDOM[data.id].querySelector('.mob-sprite');
-                if (sprite) { sprite.style.filter = "brightness(2.0) drop-shadow(0 0 10px rgba(255,68,68,0.8))"; setTimeout(() => { if (sprite) sprite.style.filter = "none"; }, 150); }
-                const txt = document.createElement("div"); txt.innerText = data.damage;
-                let startX = window.mobState[data.id].currentX + 40; let startY = window.mobState[data.id].currentY - 10;
-                
-                if (data.isCrit) {
-                    startX -= 10; startY -= 10;
-                    Object.assign(txt.style, { position: "absolute", left: "0", top: "0", transform: `translate3d(${startX}px, ${startY}px, 0)`, color: "#ffca28", fontWeight: "bold", fontStyle: "italic", fontSize: "18px", fontFamily: "'Courier New', monospace", pointerEvents: "none", zIndex: "9999", textShadow: "2px 2px 0px #000", transition: "transform 0.6s ease-out, opacity 0.6s" });
-                } else {
-                    Object.assign(txt.style, { position: "absolute", left: "0", top: "0", transform: `translate3d(${startX}px, ${startY}px, 0)`, color: "rgba(255, 68, 68, 0.9)", fontWeight: "bold", fontSize: "14px", fontFamily: "'Courier New', monospace", pointerEvents: "none", zIndex: "9999", textShadow: "1px 1px 0px #000", transition: "transform 0.5s linear, opacity 0.5s" });
+                if (sprite) {
+                    sprite.style.filter = "brightness(2.0) drop-shadow(0 0 10px rgba(255,68,68,0.8))";
+                    setTimeout(() => { if (sprite) sprite.style.filter = "none"; }, 150);
                 }
-                worldMap.appendChild(txt); 
-                requestAnimationFrame(() => { txt.style.transform = `translate3d(${data.isCrit ? startX-10 : startX+10}px, ${startY-30}px, 0) scale(${data.isCrit ? 1.2 : 1})`; txt.style.opacity = "0"; });
-                setTimeout(() => txt.remove(), 600);
+                let startX = window.mobState[data.id].currentX + 40;
+                let startY = window.mobState[data.id].currentY - 10;
+
+                if (data.isCrit) {
+                    // CRIT — grande, dourado, animado
+                    window.showFloatingText(startX - 10, startY - 10, `${data.damage}`, "#ffca28", {
+                        fontSize: "22px", shadow: "2px 2px 0px #000, 0 0 8px rgba(255,200,0,0.6)",
+                        riseY: 50, duration: 700, driftX: -10, fontWeight: "900"
+                    });
+                    // Label CRIT acima do número
+                    window.showFloatingText(startX - 10, startY - 28, "CRIT!", "#ffca28", {
+                        fontSize: "10px", shadow: "1px 1px 0 #000",
+                        riseY: 50, duration: 700, driftX: -8
+                    });
+                } else {
+                    window.showFloatingText(startX, startY, `${data.damage}`, "rgba(255,80,80,0.9)", {
+                        fontSize: "14px", shadow: "1px 1px 0px #000",
+                        riseY: 35, duration: 550, driftX: 8
+                    });
+                }
             }
         }
 
+        // ── FIX #1: dano no jogador — usa playerData.username ─
         if (data.type === 'mob_attack_player') {
-            const uiUserElement = document.getElementById('ui-username');
-            if (uiUserElement) {
-                const myUsername = uiUserElement.innerText.trim();
-                if (data.targetUsername === myUsername) window.hurtPlayer(data.damage);
+            const myUsername = window.playerData ? window.playerData.username : null;
+            if (myUsername && data.targetUsername === myUsername) {
+                window.hurtPlayer(data.damage);
             }
         }
 
         if (data.type === 'mob_died') {
-            if (window.mobCacheDOM[data.id]) {
+            if (window.mobCacheDOM[data.id] && window.mobState[data.id]) {
                 window.mobCacheDOM[data.id].style.transform = `translate3d(${window.mobState[data.id].currentX}px, ${window.mobState[data.id].currentY}px, 0) scale(0)`;
-                setTimeout(() => { if (window.mobCacheDOM[data.id]) { window.mobCacheDOM[data.id].remove(); delete window.mobCacheDOM[data.id]; delete window.mobState[data.id]; } }, 200);
+                setTimeout(() => {
+                    if (window.mobCacheDOM[data.id]) {
+                        window.mobCacheDOM[data.id].remove();
+                        delete window.mobCacheDOM[data.id];
+                        delete window.mobState[data.id];
+                    }
+                }, 200);
 
                 if (data.tags.includes(window.myCombatTagId)) {
                     window.playerKills++; 
@@ -156,7 +195,14 @@ function bootCombatEngine() {
                     
                     let xpMultiplier = 1 + ((window.playerXpBonus || 0) / 100);
                     let gainedXp = Math.floor((data.expYield || 15) * xpMultiplier);
-                    window.playerXp += gainedXp; 
+                    window.playerXp += gainedXp;
+
+                    // ── XP flutuante no cursor ─────────────────
+                    window.showFloatingText(
+                        window.globalPlayerX, window.globalPlayerY - 50,
+                        `+${gainedXp} XP`, "#b388ff",
+                        { fontSize: "12px", riseY: 45, duration: 1200 }
+                    );
                     
                     const uiCharXp = document.getElementById('ui-char-xp'); 
                     if (uiCharXp) uiCharXp.innerText = `${window.playerXp} / ${window.playerNextLevelXp}`;
@@ -165,8 +211,35 @@ function bootCombatEngine() {
                     if (typeof window.updateXpUI === 'function') window.updateXpUI();
 
                     sendRealTimeEvent({ event: 'update_stats', xp: window.playerXp, level: window.playerLevel, kills: window.playerKills, max_hp: window.playerMaxHp, current_hp: window.playerCurrentHp });
-                    if (data.loot && data.loot.length > 0) window.pushLootQueue(data.loot);
                 }
+            }
+        }
+
+        // ── FIX #2: personal_loot — gold direto, itens na bag ─
+        if (data.type === 'personal_loot') {
+            const goldItems = data.loot.filter(l => l.type === 'gold');
+            const itemsOnly = data.loot.filter(l => l.type !== 'gold');
+
+            // Gold: direto no contador, sem cair no chão
+            goldItems.forEach(g => {
+                const amt = Math.floor(g.amount);
+                if (amt <= 0) return;
+                window.playerGold = (window.playerGold || 0) + amt;
+                const uiGold = document.getElementById('ui-bag-gold');
+                if (uiGold) uiGold.innerText = window.playerGold + ' DPI';
+                window.showFloatingText(data.x, data.y - 20, `+${amt} DPI`, "#ffca28", {
+                    fontSize: "13px", riseY: 38, duration: 1100
+                });
+                fetch('backend/api_inventory.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'add_gold', amount: amt })
+                }).catch(() => {});
+            });
+
+            // Itens: bag clicável no chão
+            if (itemsOnly.length > 0 && typeof window.spawnLootBag === 'function') {
+                window.spawnLootBag(data.x, data.y, itemsOnly);
             }
         }
     };
@@ -267,6 +340,10 @@ function bootCombatEngine() {
                 if (isCrit) {
                     elfFinalDmg = Math.floor(elfFinalDmg * ((window.playerCritDamage || 150) / 100));
                     if(typeof window.triggerCritSpark === 'function') window.triggerCritSpark(mCenterX, mCenterY);
+                    // ── CRIT visual no cursor ─────────────────
+                    window.showFloatingText(pGlobalX, pGlobalY - 20, "CRIT!", "#ffca28", {
+                        fontSize: "11px", riseY: 30, duration: 600
+                    });
                 }
 
                 ws.send(JSON.stringify({ type: 'attack_mob', id: targetMobId, damage: elfFinalDmg, pushX: pullX, pushY: pullY, isCrit: isCrit, myTagId: window.myCombatTagId, pX: pGlobalX, pY: pGlobalY }));
@@ -282,12 +359,19 @@ function bootCombatEngine() {
                 
                 let critMultiplier = (window.playerCritDamage || 150) / 100;
                 window.damageAoE(pGlobalX, pGlobalY, 140, Math.floor(finalBaseDmg * critMultiplier)); 
+
+                // ── CRIT visual no cursor ─────────────────────
+                window.showFloatingText(pGlobalX, pGlobalY - 20, "CRIT!", "#ffca28", {
+                    fontSize: "11px", riseY: 30, duration: 600
+                });
                 
                 if(window.playerMaxMana) {
                     let manaHeal = window.playerMaxMana * 0.15;
                     window.playerMana = Math.min(window.playerMaxMana, window.playerMana + manaHeal);
                     window.updateMpUI();
-                    window.showFloatingText(pGlobalX, pGlobalY - 30, `+${Math.floor(manaHeal)} MP`, "#00d4ff");
+                    window.showFloatingText(pGlobalX, pGlobalY - 30, `+${Math.floor(manaHeal)} MP`, "#00d4ff", {
+                        fontSize: "12px", riseY: 35, duration: 900
+                    });
                 }
             } else {
                 let critGain = 8;
@@ -312,7 +396,12 @@ function bootCombatEngine() {
         const skill = window.playerSkills[key];
 
         if (window.skillCooldowns[key]) return;
-        if (window.playerMana < skill.mana_cost) { window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, "No Mana!", "#00d4ff"); return; }
+        if (window.playerMana < skill.mana_cost) {
+            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, "No Mana!", "#00d4ff", {
+                fontSize: "13px", riseY: 35, duration: 900
+            });
+            return;
+        }
 
         let pX = window.globalPlayerX; let pY = window.globalPlayerY;
         let totalDmg = (window.playerBaseDamage || 35) + parseInt(skill.base_damage || 0);
@@ -340,14 +429,31 @@ function bootCombatEngine() {
             window.damageAoE(pX, pY, 130, totalDmg);
         }
 
-        window.playerMana -= skill.mana_cost;
-        window.updateMpUI();
+        // ── Custo de mana flutuante ────────────────────────────
+        if (skill.mana_cost > 0) {
+            window.playerMana -= skill.mana_cost;
+            window.updateMpUI();
+            window.showFloatingText(pX, pY - 30, `-${skill.mana_cost} MP`, "#4488ff", {
+                fontSize: "11px", riseY: 32, duration: 800, driftX: 12
+            });
+        }
+
+        // ── Nome da skill flutuante ────────────────────────────
+        window.showFloatingText(pX, pY - 46, skill.skill_name, "rgba(200,220,255,0.75)", {
+            fontSize: "10px", riseY: 28, duration: 900, fontWeight: "normal"
+        });
 
         window.skillCooldowns[key] = true;
         const slot = document.getElementById(`skill-${key}`);
         if (slot) {
             const overlay = document.createElement('div');
-            Object.assign(overlay.style, { position: 'absolute', bottom: '0', left: '0', width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', transition: `height ${skill.cooldown_ms}ms linear`, zIndex: '10', borderRadius: '6px' });
+            Object.assign(overlay.style, {
+                position: 'absolute', bottom: '0', left: '0',
+                width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.75)',
+                transition: `height ${skill.cooldown_ms}ms linear`,
+                zIndex: '10', borderRadius: '6px'
+            });
             slot.appendChild(overlay);
             setTimeout(() => overlay.style.height = '0%', 50); 
             setTimeout(() => { window.skillCooldowns[key] = false; if(overlay.isConnected) overlay.remove(); }, skill.cooldown_ms);
@@ -364,7 +470,9 @@ function bootCombatEngine() {
         
         let dodgeChance = parseInt(window.playerData?.attr_dodge) || 0;
         if (dodgeChance > 0 && Math.random() * 100 < dodgeChance) {
-            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `MISS`, "#aaa");
+            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `MISS`, "#aaa", {
+                fontSize: "13px", riseY: 30, duration: 700
+            });
             return;
         }
         
@@ -378,28 +486,42 @@ function bootCombatEngine() {
         if (window.playerShield > 0) {
             if (window.playerShield >= finalDamage) {
                 window.playerShield -= finalDamage;
-                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `🛡️ Absorbed`, "#00bfff");
+                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `🛡️ Absorbed`, "#00bfff", { fontSize: "13px" });
                 window.updateHealthBars();
                 return; 
             } else {
                 finalDamage -= window.playerShield;
-                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `🛡️ Broken!`, "#00bfff");
+                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `🛡️ Broken!`, "#00bfff", { fontSize: "13px" });
                 window.playerShield = 0; 
             }
         }
 
         window.playerCurrentHp -= finalDamage;
-        window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `-${finalDamage}`, "#ff2a2a");
+
+        // ── Dano no jogador — número vermelho flutuante ────────
+        window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 30, `-${finalDamage}`, "#ff2a2a", {
+            fontSize: "16px", shadow: "2px 2px 0px #000",
+            riseY: 42, duration: 1000, driftX: (Math.random() - 0.5) * 20
+        });
         
+        // Flash de dano na tela
         const flash = document.createElement('div');
-        Object.assign(flash.style, { position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh', boxShadow: 'inset 0 0 100px rgba(255,0,0,0.5)', pointerEvents: 'none', zIndex: '9998', transition: 'opacity 0.2s' });
+        Object.assign(flash.style, {
+            position: 'fixed', top: '0', left: '0',
+            width: '100vw', height: '100vh',
+            boxShadow: 'inset 0 0 80px rgba(255,0,0,0.45)',
+            pointerEvents: 'none', zIndex: '9998', transition: 'opacity 0.25s'
+        });
         document.body.appendChild(flash);
-        setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 200); }, 50);
+        setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 250); }, 60);
         
         if (window.playerCurrentHp <= 0) {
             if (window.playerPassives && window.playerPassives.some(p => p.skill_name === 'Last Hope' || p.skill_name === 'Última Esperança') && !window.lastHopeUsed) {
                 window.playerCurrentHp = 1; window.lastHopeUsed = true; window.isInvulnerable = true;
-                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50, "LAST HOPE!", "#ffca28");
+                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50, "LAST HOPE!", "#ffca28", {
+                    fontSize: "18px", shadow: "2px 2px 0 #000, 0 0 10px rgba(255,200,0,0.7)",
+                    riseY: 50, duration: 1200
+                });
                 let ws = window.gameWs || window.combatWs;
                 if(ws) { ws.send(JSON.stringify({ type: 'play_effect', effect: 'Last Hope', x: window.globalPlayerX, y: window.globalPlayerY })); }
                 setTimeout(() => window.isInvulnerable = false, 5000);
@@ -425,7 +547,13 @@ function bootCombatEngine() {
         window.updateHealthBars();
     };
 
-    function sendRealTimeEvent(payload) { fetch('backend/api_save_event.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(err => {}); }
+    function sendRealTimeEvent(payload) {
+        fetch('backend/api_save_event.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(() => {});
+    }
 
     function renderLoop() {
         const SAFEPAD = { minX: 2100, maxX: 2900, minY: 2200, maxY: 2800 };
@@ -435,15 +563,24 @@ function bootCombatEngine() {
         if (!window.isDead) {
             if (playerInSafezone) {
                 if (window.playerEnergy < window.playerMaxEnergy) {
-                    window.playerEnergy = Math.min(window.playerMaxEnergy, window.playerEnergy + 0.02); window.updateEnergyUI();
+                    window.playerEnergy = Math.min(window.playerMaxEnergy, window.playerEnergy + 0.02);
+                    window.updateEnergyUI();
                 }
                 if (window.playerCurrentHp < window.playerMaxHp) {
                     window.playerCurrentHp = Math.min(window.playerMaxHp, window.playerCurrentHp + (window.playerMaxHp * 0.05 / 60));
                     window.updateHealthBars();
                 }
             }
+            // FIX regen de mana — floor para evitar decimais longos
             if (window.playerMana < window.playerMaxMana && window.playerManaRegen) {
-                window.playerMana = Math.min(window.playerMaxMana, window.playerMana + (window.playerManaRegen / 60)); window.updateMpUI();
+                let newMana = Math.min(window.playerMaxMana, window.playerMana + (window.playerManaRegen / 60));
+                // Só chama updateMpUI quando muda o valor inteiro (evita spam de renders)
+                if (Math.floor(newMana) !== Math.floor(window.playerMana)) {
+                    window.playerMana = newMana;
+                    window.updateMpUI();
+                } else {
+                    window.playerMana = newMana;
+                }
             }
         }
         
@@ -468,69 +605,76 @@ if (document.readyState === 'loading') {
 }
 
 // ============================================================
-// SISTEMA DE LOOT NO CHÃO — GOLD AUTO-COLETA + BAG DE ITENS
+// SISTEMA DE LOOT NO CHÃO — BAG DE ITENS CLICÁVEL
 // ============================================================
 (function() {
-    const worldMap = document.getElementById('worldMap');
     const MAX_BAGS = 10;
     const BAG_TTL  = 30000; // 30s
-    const GOLD_TTL = 30000;
-    const GOLD_RADIUS = 45; // px world-space
 
-    let groundBags  = []; // { el, items, expireAt, popupOpen }
-    let groundGolds = []; // { el, amount, expireAt }
-    let activeBagPopup = null; // { bagRef, el }
+    let groundBags  = [];
+    let activeBagPopup = null;
 
-    // ── CSS injetado uma vez ──────────────────────────────────
+    // CSS injetado uma vez
     if (!document.getElementById('ks-loot-css')) {
         const s = document.createElement('style');
         s.id = 'ks-loot-css';
         s.textContent = `
-            @keyframes ks-bag-idle { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-            @keyframes ks-bag-expire { to{opacity:0;transform:scale(0.5)} }
-            @keyframes ks-popup-in  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+            @keyframes ks-bag-idle { 0%,100%{transform:translate(-50%,-50%) translateY(0)} 50%{transform:translate(-50%,-50%) translateY(-4px)} }
+            @keyframes ks-bag-expire { to{opacity:0;transform:translate(-50%,-50%) scale(0.4)} }
+            @keyframes ks-popup-in  { from{opacity:0;transform:translateY(6px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
             .ks-ground-bag {
-                position:absolute; width:32px; height:32px;
+                position:absolute; width:36px; height:36px;
+                transform:translate(-50%,-50%);
                 display:flex; flex-direction:column; align-items:center;
-                cursor:pointer; z-index:900; transform-origin:center bottom;
+                cursor:pointer; z-index:900;
                 animation: ks-bag-idle 2s ease-in-out infinite;
                 pointer-events:all;
             }
-            .ks-ground-bag img { width:28px; height:28px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.9)); }
+            .ks-ground-bag img {
+                width:30px; height:30px; object-fit:contain;
+                filter:drop-shadow(0 2px 6px rgba(0,0,0,0.95)) drop-shadow(0 0 4px rgba(255,200,80,0.4));
+            }
             .ks-bag-timer {
-                width:28px; height:3px; background:rgba(0,0,0,0.6);
-                border-radius:2px; overflow:hidden; margin-top:2px;
+                width:28px; height:2px; background:rgba(0,0,0,0.5);
+                border-radius:2px; overflow:hidden; margin-top:3px;
             }
-            .ks-bag-timer-fill { height:100%; background:rgba(0,229,255,0.7); transition:width 0.5s linear; }
-            .ks-gold-coin {
-                position:absolute; width:20px; height:20px; z-index:890;
-                pointer-events:none; cursor:default;
-                animation: ks-bag-idle 1.5s ease-in-out infinite;
-            }
-            .ks-gold-coin img { width:20px; height:20px; filter:drop-shadow(0 1px 3px rgba(255,200,0,0.8)); }
+            .ks-bag-timer-fill { height:100%; background:rgba(0,229,255,0.6); transition:width 0.5s linear; }
             .ks-bag-popup {
                 position:fixed; z-index:8000;
-                background:rgba(0,0,0,0.92);
+                background:rgba(0,0,0,0.88);
                 border-radius:8px; padding:10px 12px;
-                min-width:220px; max-width:280px;
+                min-width:210px; max-width:270px;
                 animation: ks-popup-in 0.15s ease-out;
                 pointer-events:all;
+            }
+            .ks-popup-header {
+                font-size:9px; color:rgba(255,255,255,0.3);
+                letter-spacing:1.5px; text-transform:uppercase;
+                margin-bottom:8px; padding-bottom:5px;
+                border-bottom:1px solid rgba(255,255,255,0.05);
             }
             .ks-popup-item {
                 display:flex; align-items:center; gap:8px;
                 padding:5px 4px; border-radius:5px; cursor:pointer;
-                transition:background 0.1s;
+                transition:background 0.1s; position:relative;
             }
-            .ks-popup-item:hover { background:rgba(255,255,255,0.07); }
+            .ks-popup-item:hover { background:rgba(255,255,255,0.06); }
             .ks-popup-item img { width:26px; height:26px; object-fit:contain; flex-shrink:0; border-radius:4px; }
+            .ks-popup-item .ks-item-tooltip {
+                display:none; position:absolute; left:calc(100% + 8px); top:0;
+                background:rgba(0,0,0,0.95); border-radius:6px; padding:8px 10px;
+                min-width:160px; font-size:10px; line-height:1.5; z-index:9100;
+                white-space:nowrap;
+            }
+            .ks-popup-item:hover .ks-item-tooltip { display:block; }
             .ks-popup-take-all {
-                width:100%; padding:6px 0; margin-top:8px;
-                background:rgba(0,229,255,0.12); border:none; border-radius:5px;
-                color:#00e5ff; font-size:11px; font-weight:700;
+                width:100%; padding:5px 0; margin-top:8px;
+                background:rgba(0,229,255,0.08); border:none; border-radius:5px;
+                color:rgba(0,229,255,0.8); font-size:10px; font-weight:700;
                 letter-spacing:1px; cursor:pointer; transition:background 0.15s;
             }
-            .ks-popup-take-all:hover { background:rgba(0,229,255,0.22); }
-            .rarity-Common    { color:#ccc; }
+            .ks-popup-take-all:hover { background:rgba(0,229,255,0.18); }
+            .rarity-Common    { color:#bbb; }
             .rarity-Uncommon  { color:#4caf50; }
             .rarity-Rare      { color:#2196f3; }
             .rarity-Epic      { color:#9c27b0; }
@@ -539,11 +683,30 @@ if (document.readyState === 'loading') {
         document.head.appendChild(s);
     }
 
+    // ── Helpers para montar tooltip de stats ──────────────────
+    function buildTooltipHtml(item) {
+        let lines = [`<div class="rarity-${item.rarity||'Common'}" style="font-weight:bold;margin-bottom:4px;">${item.name}</div>`];
+        lines.push(`<div style="color:rgba(255,255,255,0.35);font-size:9px;margin-bottom:4px;">${item.rarity||'Common'} · ${item.category||''}</div>`);
+        const stats = item.stats_json || item.tpl_stats || null;
+        if (stats) {
+            try {
+                const parsed = typeof stats === 'string' ? JSON.parse(stats) : stats;
+                for (const [k, v] of Object.entries(parsed)) {
+                    if (v && v !== 0) {
+                        const label = k.replace('attr_','').replace(/_/g,' ');
+                        lines.push(`<div style="color:rgba(200,220,255,0.7);">+${v} <span style="color:rgba(255,255,255,0.4);">${label}</span></div>`);
+                    }
+                }
+            } catch {}
+        }
+        return lines.join('');
+    }
+
     // ── Spawn bag de itens no mapa ────────────────────────────
     window.spawnLootBag = function(wx, wy, items) {
+        const worldMap = document.getElementById('worldMap');
         if (!worldMap || !items || items.length === 0) return;
 
-        // Limita bags simultâneas
         if (groundBags.length >= MAX_BAGS) {
             const oldest = groundBags.shift();
             removeBag(oldest, true);
@@ -551,27 +714,23 @@ if (document.readyState === 'loading') {
 
         const el = document.createElement('div');
         el.className = 'ks-ground-bag';
-        el.style.left  = (wx - 16) + 'px';
-        el.style.top   = (wy - 16) + 'px';
+        el.style.left = wx + 'px';
+        el.style.top  = wy + 'px';
         el.innerHTML = `
             <img src="img/items/loot_bag.png" onerror="this.src='img/items/default.png'">
             <div class="ks-bag-timer"><div class="ks-bag-timer-fill" style="width:100%"></div></div>
         `;
         worldMap.appendChild(el);
 
-        const bagRef = { el, items: [...items], expireAt: Date.now() + BAG_TTL, popupOpen: false };
+        const bagRef = { el, items: [...items], expireAt: Date.now() + BAG_TTL };
         groundBags.push(bagRef);
 
-        // Animação da barra de tempo
         requestAnimationFrame(() => {
             const fill = el.querySelector('.ks-bag-timer-fill');
             if (fill) { fill.style.transition = `width ${BAG_TTL}ms linear`; fill.style.width = '0%'; }
         });
 
-        // Clique abre popup
         el.addEventListener('click', (e) => { e.stopPropagation(); openBagPopup(bagRef, e); });
-
-        // Auto-expirar
         bagRef._timer = setTimeout(() => removeBag(bagRef, true), BAG_TTL);
     };
 
@@ -580,8 +739,8 @@ if (document.readyState === 'loading') {
         clearTimeout(bagRef._timer);
         if (activeBagPopup && activeBagPopup.bagRef === bagRef) closeBagPopup();
         if (animated) {
-            bagRef.el.style.animation = 'ks-bag-expire 0.4s ease-out forwards';
-            setTimeout(() => bagRef.el.remove(), 400);
+            bagRef.el.style.animation = 'ks-bag-expire 0.35s ease-out forwards';
+            setTimeout(() => bagRef.el.remove(), 350);
         } else {
             bagRef.el.remove();
         }
@@ -600,44 +759,39 @@ if (document.readyState === 'loading') {
         const renderPopup = () => {
             if (bagRef.items.length === 0) { closeBagPopup(); removeBag(bagRef, true); return; }
             popup.innerHTML = `
-                <div style="font-size:9px;color:#666;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:5px;">Loot</div>
+                <div class="ks-popup-header">Loot (${bagRef.items.length})</div>
                 ${bagRef.items.map((item, idx) => `
-                    <div class="ks-popup-item" draggable="true"
-                        data-idx="${idx}"
-                        ondragstart="window._lootDragStart(event,${idx})"
-                        onclick="window._lootItemClick(event,${idx})">
+                    <div class="ks-popup-item" onclick="window._lootItemClick(event,${idx})">
                         <img src="${item.icon_path || 'img/items/default.png'}" onerror="this.src='img/items/default.png'">
-                        <span class="rarity-${item.rarity||'Common'}" style="font-size:12px;font-weight:600;">${item.name}</span>
+                        <span class="rarity-${item.rarity||'Common'}" style="font-size:12px;font-weight:600;flex:1;">${item.name}</span>
+                        <div class="ks-item-tooltip">${buildTooltipHtml(item)}</div>
                     </div>
                 `).join('')}
-                <button class="ks-popup-take-all" onclick="window._lootTakeAll()">⬆ PEGAR TUDO</button>
+                <button class="ks-popup-take-all" onclick="window._lootTakeAll()">⬆ TAKE ALL</button>
             `;
         };
         renderPopup();
 
-        // Posicionar perto do clique mas dentro da tela
-        const px = Math.min(clickEvent.clientX + 10, window.innerWidth - 300);
-        const py = Math.min(clickEvent.clientY - 20, window.innerHeight - 300);
+        const px = Math.min(clickEvent.clientX + 12, window.innerWidth - 290);
+        const py = Math.min(clickEvent.clientY - 10, window.innerHeight - 280);
         popup.style.left = px + 'px';
         popup.style.top  = py + 'px';
 
         activeBagPopup = { bagRef, el: popup, renderPopup };
-        bagRef.popupOpen = true;
     }
 
     function closeBagPopup() {
         if (!activeBagPopup) return;
         activeBagPopup.el.remove();
-        activeBagPopup.bagRef.popupOpen = false;
         activeBagPopup = null;
     }
 
-    // Fechar popup ao clicar fora
     document.addEventListener('click', (e) => {
-        if (activeBagPopup && !activeBagPopup.el.contains(e.target)) closeBagPopup();
+        if (activeBagPopup && !activeBagPopup.el.contains(e.target) && !e.target.closest('.ks-ground-bag')) {
+            closeBagPopup();
+        }
     });
 
-    // ── Pegar item individual (clique rápido) ────────────────
     window._lootItemClick = async function(e, idx) {
         e.stopPropagation();
         if (!activeBagPopup) return;
@@ -652,36 +806,6 @@ if (document.readyState === 'loading') {
         }
     };
 
-    // ── Drag do item para o inventário ───────────────────────
-    window._lootDragStart = function(e, idx) {
-        e.dataTransfer.setData('loot-idx', idx);
-        e.dataTransfer.effectAllowed = 'copy';
-    };
-
-    // O bag-container aceita drop de itens de loot
-    document.addEventListener('DOMContentLoaded', () => {
-        const bagContainer = document.getElementById('bag-container');
-        if (!bagContainer) return;
-        bagContainer.addEventListener('dragover', (e) => {
-            if (e.dataTransfer.types.includes('loot-idx')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
-        });
-        bagContainer.addEventListener('drop', async (e) => {
-            const idx = e.dataTransfer.getData('loot-idx');
-            if (idx === '' || !activeBagPopup) return;
-            e.preventDefault();
-            const bagRef = activeBagPopup.bagRef;
-            const item = bagRef.items[parseInt(idx)];
-            if (!item) return;
-            const ok = await collectItem(item);
-            if (ok) {
-                bagRef.items.splice(parseInt(idx), 1);
-                if (bagRef.items.length === 0) { closeBagPopup(); removeBag(bagRef, true); }
-                else activeBagPopup.renderPopup();
-            }
-        });
-    });
-
-    // ── Pegar tudo ───────────────────────────────────────────
     window._lootTakeAll = async function() {
         if (!activeBagPopup) return;
         const bagRef = activeBagPopup.bagRef;
@@ -692,16 +816,18 @@ if (document.readyState === 'loading') {
             if (ok) bagRef.items.splice(bagRef.items.indexOf(item), 1);
             else skipped++;
         }
-        if (skipped > 0) window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50, `Bag cheia! ${skipped} item(s) deixado(s)`, '#ff5555');
+        if (skipped > 0) {
+            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 50,
+                `Bag full! ${skipped} item(s) left`, '#ff5555', { fontSize: "11px" });
+        }
         if (bagRef.items.length === 0) { closeBagPopup(); removeBag(bagRef, true); }
         else activeBagPopup.renderPopup();
     };
 
-    // ── Coleta efetiva de item ────────────────────────────────
     async function collectItem(item) {
         const used = window._bagUsed || 0;
         if (used >= 20) {
-            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, 'Bag cheia!', '#ff5555');
+            window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, 'Bag full!', '#ff5555');
             return false;
         }
         try {
@@ -713,96 +839,19 @@ if (document.readyState === 'loading') {
             const data = await res.json();
             if (data.success) {
                 window._bagUsed = (window._bagUsed || 0) + 1;
-                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${item.name}`, item.color || '#fff');
+                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40,
+                    `+${item.name}`, item.color || '#fff', { fontSize: "12px", riseY: 38 });
                 if (typeof window.loadInventoryData === 'function') window.loadInventoryData();
                 return true;
             }
             if (data.error === 'Inventory full') {
-                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, 'Bag cheia!', '#ff5555');
+                window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, 'Bag full!', '#ff5555');
             }
             return false;
         } catch { return false; }
     }
 
-    // ── Spawn de moeda de ouro ───────────────────────────────
-    window.spawnGoldCoin = function(wx, wy, amount) {
-        if (!worldMap || amount <= 0) return;
-        const el = document.createElement('div');
-        el.className = 'ks-gold-coin';
-        // Leve offset aleatório para não empilhar no mesmo px
-        const ox = (Math.random() - 0.5) * 30;
-        const oy = (Math.random() - 0.5) * 20;
-        el.style.left = (wx + ox - 10) + 'px';
-        el.style.top  = (wy + oy - 10) + 'px';
-        el.innerHTML = `<img src="img/items/gold_coins.png" onerror="this.src='img/items/default.png'">`;
-        worldMap.appendChild(el);
-
-        const coinRef = { el, amount, expireAt: Date.now() + GOLD_TTL, collected: false };
-        groundGolds.push(coinRef);
-
-        // Fade automático aos 25s, remoção aos 30s
-        setTimeout(() => { if (!coinRef.collected) el.style.transition = 'opacity 5s'; el.style.opacity = '0'; }, BAG_TTL - 5000);
-        setTimeout(() => removeGold(coinRef), GOLD_TTL);
-        return coinRef;
-    };
-
-    function removeGold(coinRef) {
-        if (!coinRef || !coinRef.el) return;
-        coinRef.el.remove();
-        groundGolds = groundGolds.filter(g => g !== coinRef);
-    }
-
-    async function collectGold(coinRef) {
-        if (coinRef.collected) return;
-        coinRef.collected = true;
-        const amt = coinRef.amount;
-        removeGold(coinRef);
-        window.playerGold = (window.playerGold || 0) + amt;
-        const uiGold = document.getElementById('ui-bag-gold');
-        if (uiGold) uiGold.innerText = window.playerGold + ' DPI';
-        window.showFloatingText(window.globalPlayerX, window.globalPlayerY - 40, `+${amt} DPI`, '#ffca28');
-        fetch('backend/api_inventory.php', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'add_gold', amount: amt })
-        }).catch(() => {});
-    }
-
-    // ── gameLoop hook: verifica proximidade moedas ───────────
-    // Injeta verificação no renderLoop via monkey-patch mínimo
-    let _goldCheckFrame = 0;
-    const _origRaf = window.requestAnimationFrame.bind(window);
-    window._checkGoldProximity = function() {
-        if (groundGolds.length === 0) return;
-        const px = window.globalPlayerX;
-        const py = window.globalPlayerY;
-        groundGolds.filter(g => !g.collected).forEach(g => {
-            const gx = parseFloat(g.el.style.left) + 10;
-            const gy = parseFloat(g.el.style.top)  + 10;
-            if (Math.hypot(px - gx, py - gy) < GOLD_RADIUS) collectGold(g);
-        });
-    };
-
-    // ── Tratar personal_loot do server ───────────────────────
-    // Intercepta onmessage do combatWs depois que foi definido
-    const _waitForWs = setInterval(() => {
-        if (!window.combatWs) return;
-        clearInterval(_waitForWs);
-        const _origOnMsg = window.combatWs.onmessage;
-        window.combatWs.onmessage = function(event) {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'personal_loot') {
-                    const goldItems  = data.loot.filter(l => l.type === 'gold');
-                    const itemsOnly  = data.loot.filter(l => l.type !== 'gold');
-                    // Gold: moeda no chão
-                    goldItems.forEach(g => window.spawnGoldCoin(data.x, data.y, Math.floor(g.amount)));
-                    // Itens: bag no chão
-                    if (itemsOnly.length > 0) window.spawnLootBag(data.x, data.y, itemsOnly);
-                    return;
-                }
-            } catch {}
-            if (_origOnMsg) _origOnMsg.call(this, event);
-        };
-    }, 100);
+    // _checkGoldProximity fica vazio aqui pois gold vai direto agora
+    window._checkGoldProximity = function() {};
 
 })();
